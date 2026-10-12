@@ -40,16 +40,21 @@
     /* Header */
     header {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 20px;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px 20px;
       margin-bottom: 24px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-      flex-wrap: wrap;
-      gap: 12px;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
     }
 
     .brand {
@@ -93,28 +98,37 @@
       display: inline-block;
     }
 
-    /* Navigation Pill Segment */
+    /* Navigation Pill Segment - Hierarchy: Left, Center, Right */
     nav {
-      display: flex;
-      gap: 4px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      width: 100%;
       background: var(--surface-subtle);
-      padding: 3px;
+      padding: 4px;
       border-radius: var(--radius-full);
       border: 1px solid var(--border);
+      box-sizing: border-box;
+      gap: 4px;
     }
 
     nav button {
       background: transparent;
       border: none;
       color: var(--secondary);
-      padding: 8px 16px;
+      padding: 10px 14px;
       min-height: 44px;
       border-radius: var(--radius-full);
       font-family: inherit;
       font-weight: 500;
-      font-size: 0.825rem;
+      font-size: 0.85rem;
       cursor: pointer;
       transition: all 0.15s ease-out;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      white-space: nowrap;
     }
 
     nav button:hover {
@@ -284,20 +298,23 @@
 
     .slider:before {
       position: absolute; content: ""; height: 16px; width: 16px; left: 2.5px; bottom: 2.5px;
-      background-color: #9ca3af;
+      background-color: #ffffff;
+      border: 1px solid #d1d5db;
       transition: .2s;
       border-radius: 50%;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     }
 
     input:checked + .slider {
       background-color: #ffffff;
-      border-color: #000000;
+      border-color: #9ca3af;
     }
 
     input:checked + .slider:before {
       transform: translateX(20px);
-      background-color: #000000;
+      background-color: #ffffff;
+      border: 1px solid #9ca3af;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
     }
 
     /* Chat Area */
@@ -496,14 +513,19 @@
       }
       header {
         padding: 12px 14px;
+        gap: 12px;
       }
       nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
         width: 100%;
-        overflow-x: auto;
+        padding: 3px;
+        gap: 2px;
       }
       nav button {
-        padding: 8px 12px;
-        font-size: 0.78rem;
+        padding: 8px 4px;
+        font-size: 0.76rem;
+        min-height: 44px;
         white-space: nowrap;
       }
       .card {
@@ -523,14 +545,16 @@
 <body>
 
   <header>
-    <div class="brand">
-      <h1>OpenCode-to-API</h1>
-      <span class="badge-status" id="server-status"><span class="pulse-dot"></span> Online</span>
+    <div class="header-top">
+      <div class="brand">
+        <h1>OpenCode-to-API</h1>
+        <span class="badge-status" id="server-status"><span class="pulse-dot"></span> Online</span>
+      </div>
     </div>
     <nav>
-      <button class="active" onclick="switchTab('playground')">Chat Tester</button>
-      <button onclick="switchTab('relay')">Relay Server</button>
-      <button onclick="switchTab('keys')">Config & Keys</button>
+      <button class="active" onclick="switchTab(this, 'playground')">Chat Tester</button>
+      <button onclick="switchTab(this, 'relay')">Relay Server</button>
+      <button onclick="switchTab(this, 'keys')">Config & Keys</button>
     </nav>
   </header>
 
@@ -668,11 +692,16 @@
     let chatHistory = [];
     let abortController = null;
 
-    function switchTab(name) {
+    function switchTab(btn, name) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
       document.getElementById('tab-' + name).classList.add('active');
-      event.target.classList.add('active');
+      if (btn && btn.classList) {
+        btn.classList.add('active');
+      } else if (window.event && window.event.target) {
+        const targetBtn = window.event.target.closest('button') || window.event.target;
+        targetBtn.classList.add('active');
+      }
       if (name === 'relay') loadRelayData();
     }
 
