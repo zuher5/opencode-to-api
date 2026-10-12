@@ -6,291 +6,515 @@
   <title>OpenCode-to-API Dashboard & Playground</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --code-bg: #0b1120;
+      --bg: #0d0d18;
+      --card-bg: #16162a;
+      --card-border: rgba(0, 255, 255, 0.2);
+      --card-border-active: #00ffff;
+      --card-border-pink: rgba(255, 0, 110, 0.4);
+      --text: #f0f6fc;
+      --text-muted: #8b9bb4;
+      --primary: #0080ff;
+      --secondary: #ff006e;
+      --accent: #00ffff;
+      --surface: #221c44;
+      --surface-dark: #0a0a14;
+      --metallic: #c0c0c0;
+      --gold: #ffd700;
+      --danger: #ff3366;
+      --success: #00ffaa;
+      --glow-blue: 0 0 12px rgba(0, 128, 255, 0.5);
+      --glow-pink: 0 0 12px rgba(255, 0, 110, 0.5);
+      --glow-cyan: 0 0 12px rgba(0, 255, 255, 0.5);
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* CRT Scanline Overlay */
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 26, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
+      background-size: 100% 4px;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0.75;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
       padding: 16px;
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto;
+      min-height: 100dvh;
+      letter-spacing: -0.01em;
     }
+
+    /* Header */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
-      margin-bottom: 20px;
-      border-bottom: 1px solid var(--card-border);
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border-pink);
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), var(--glow-pink);
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 14px;
     }
+
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    .brand h1 { font-size: 1.25rem; font-weight: 700; }
-    .badge {
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-shadow: var(--glow-cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .badge-status {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       font-size: 0.75rem;
       padding: 4px 10px;
-      border-radius: 9999px;
-      background: rgba(16, 185, 129, 0.2);
+      border-radius: 4px;
+      background: rgba(0, 255, 170, 0.15);
+      border: 1px solid var(--success);
       color: var(--success);
-      font-weight: 600;
+      font-weight: 700;
+      text-transform: uppercase;
     }
-    .badge.off {
-      background: rgba(148, 163, 184, 0.2);
+
+    .badge-status.off {
+      background: rgba(139, 155, 180, 0.15);
+      border-color: var(--text-muted);
       color: var(--text-muted);
     }
+
     .pulse-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--success);
-      display: inline-block;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
     }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
     nav {
       display: flex;
       gap: 8px;
-      background: var(--card-bg);
+      background: var(--surface-dark);
       padding: 4px;
-      border-radius: 8px;
+      border-radius: 6px;
       border: 1px solid var(--card-border);
     }
+
     nav button {
       background: transparent;
-      border: none;
+      border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 6px 16px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.875rem;
+      padding: 8px 16px;
+      min-height: 44px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.8rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.2s ease-out;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
+
+    nav button:hover {
+      color: var(--text);
+      border-color: rgba(0, 255, 255, 0.3);
+    }
+
     nav button.active {
       background: var(--primary);
-      color: white;
+      color: #ffffff;
+      border-color: var(--accent);
+      box-shadow: var(--glow-blue);
     }
+
+    nav button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
     /* Cards & Layout */
-    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
     @media (min-width: 840px) {
       .grid-2 { grid-template-columns: 1fr 1fr; }
-      .grid-play { grid-template-columns: 320px 1fr; }
+      .grid-play { grid-template-columns: 340px 1fr; }
     }
+
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 8px;
+      padding: 22px;
+      position: relative;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.2s ease-out;
     }
+
+    .card:hover {
+      border-color: rgba(0, 255, 255, 0.4);
+    }
+
     .card-title {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--secondary);
+      text-shadow: var(--glow-pink);
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid rgba(255, 0, 110, 0.25);
+      padding-bottom: 8px;
     }
 
-    /* Forms & Inputs */
+    /* Forms */
     label {
       display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
       margin-bottom: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
     }
-    input[type="text"], input[type="password"], select, textarea {
+
+    input[type="text"], select, textarea {
       width: 100%;
-      background: var(--code-bg);
+      background: var(--surface-dark);
       border: 1px solid var(--card-border);
       color: var(--text);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      margin-bottom: 14px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      margin-bottom: 16px;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease-out;
+      min-height: 44px;
     }
+
     input:focus, select:focus, textarea:focus {
-      border-color: var(--primary);
+      border-color: var(--accent);
+      box-shadow: var(--glow-cyan);
     }
+
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
-      font-size: 0.875rem;
+      gap: 8px;
+      padding: 10px 18px;
+      min-height: 44px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-weight: 700;
+      font-size: 0.8rem;
+      font-family: inherit;
       cursor: pointer;
       background: var(--primary);
-      color: white;
-      transition: all 0.2s;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      transition: all 0.15s ease-out;
+      box-shadow: 0 4px 12px rgba(0, 128, 255, 0.3);
     }
-    .btn:hover { background: var(--primary-hover); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn:hover {
+      background: #0070e0;
+      transform: translateY(-1px);
+      box-shadow: var(--glow-blue);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     .btn-secondary {
-      background: var(--code-bg);
+      background: var(--surface-dark);
       border: 1px solid var(--card-border);
       color: var(--text);
+      box-shadow: none;
     }
-    .btn-secondary:hover { background: #162032; }
-    .btn-danger { background: var(--danger); }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-sm { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; }
 
-    /* Switch toggle */
+    .btn-secondary:hover {
+      background: #1b1b33;
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .btn-danger {
+      background: transparent;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      box-shadow: none;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+    }
+
+    .btn-sm {
+      min-height: 34px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+    }
+
+    /* Switch row */
     .switch-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 16px;
-      padding: 10px 14px;
-      background: var(--code-bg);
-      border-radius: 8px;
+      padding: 12px 14px;
+      background: var(--surface-dark);
+      border-radius: 6px;
       border: 1px solid var(--card-border);
     }
+
     .switch {
       position: relative;
       display: inline-block;
-      width: 44px;
-      height: 24px;
+      width: 48px;
+      height: 26px;
     }
+
     .switch input { opacity: 0; width: 0; height: 0; }
+
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #475569; transition: .3s; border-radius: 24px;
+      background-color: #24243e; transition: .25s; border-radius: 14px;
+      border: 1px solid #444466;
     }
+
     .slider:before {
       position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
-      background-color: white; transition: .3s; border-radius: 50%;
+      background-color: var(--metallic); transition: .25s; border-radius: 50%;
     }
-    input:checked + .slider { background-color: var(--success); }
-    input:checked + .slider:before { transform: translateX(20px); }
+
+    input:checked + .slider {
+      background-color: rgba(0, 255, 170, 0.25);
+      border-color: var(--success);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Chat Terminal */
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      height: 560px;
+      background: var(--surface-dark);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .message {
+      max-width: 88%;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #0f2b48;
+      color: #ffffff;
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 10px rgba(0, 128, 255, 0.25);
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+
+    .msg-header {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .message.user .msg-header {
+      color: #60a5fa;
+    }
+
+    .thought-details {
+      margin-bottom: 10px;
+      background: rgba(10, 10, 20, 0.8);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-left: 3px solid var(--gold);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+    }
+
+    .thought-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--gold);
+      text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+      outline: none;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+    }
+
+    .thought-details summary:focus-visible {
+      outline: 2px solid var(--gold);
+    }
+
+    .thought-body {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255, 215, 0, 0.2);
+      font-family: inherit;
+      white-space: pre-wrap;
+    }
+
+    .chat-input-bar {
+      display: flex;
+      gap: 10px;
+      padding: 14px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--card-border);
+    }
+
+    .chat-input-bar textarea {
+      flex: 1;
+      height: 48px;
+      margin-bottom: 0;
+      resize: none;
+      padding: 10px 14px;
+    }
 
     /* Relay list items */
     .relay-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px;
-      background: var(--code-bg);
+      padding: 14px;
+      background: var(--surface-dark);
       border: 1px solid var(--card-border);
-      border-radius: 8px;
-      margin-bottom: 10px;
-      gap: 8px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      gap: 12px;
       flex-wrap: wrap;
     }
-    .relay-url { font-family: monospace; font-size: 0.85rem; word-break: break-all; }
-    .relay-label { font-size: 0.75rem; color: var(--text-muted); }
 
-    /* Chat Playground */
-    .chat-box {
-      display: flex;
-      flex-direction: column;
-      height: 550px;
-      background: var(--code-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      overflow: hidden;
+    .relay-url {
+      font-size: 0.82rem;
+      color: var(--accent);
+      word-break: break-all;
+      font-weight: 700;
     }
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+
+    .relay-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
-    .message {
-      max-width: 85%;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 0.9rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .message.user {
-      align-self: flex-end;
-      background: var(--primary);
-      color: white;
-      border-bottom-right-radius: 2px;
-    }
-    .message.assistant {
-      align-self: flex-start;
-      background: var(--card-bg);
-      color: var(--text);
-      border: 1px solid var(--card-border);
-      border-bottom-left-radius: 2px;
-    }
-    .thought-details {
-      margin-bottom: 8px;
-      background: rgba(0, 0, 0, 0.25);
-      border-left: 3px solid var(--warning);
-      border-radius: 4px;
-      padding: 8px 10px;
-      font-size: 0.8rem;
-      color: #cbd5e1;
-    }
-    .thought-details summary {
-      cursor: pointer;
-      font-weight: 600;
-      color: var(--warning);
-      outline: none;
-    }
-    .chat-input-bar {
-      display: flex;
-      gap: 8px;
-      padding: 12px;
-      background: var(--card-bg);
-      border-top: 1px solid var(--card-border);
-    }
-    .chat-input-bar textarea {
-      flex: 1;
-      height: 48px;
-      margin-bottom: 0;
-      resize: none;
-      padding: 10px;
-    }
-    pre, code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
+
+    /* Vault pills */
     .code-pill {
-      background: var(--code-bg);
-      padding: 8px 12px;
+      background: var(--surface-dark);
+      padding: 12px 14px;
       border-radius: 6px;
       border: 1px solid var(--card-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
       font-size: 0.85rem;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .code-pill code {
+      word-break: break-all;
+      color: var(--success);
+    }
+
+    .instruction-block {
+      background: var(--surface-dark);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 0.8rem;
+      color: var(--metallic);
+      margin-top: 14px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -298,55 +522,61 @@
 
   <header>
     <div class="brand">
-      <h1>⚡ OpenCode-to-API</h1>
-      <span class="badge" id="server-status"><span class="pulse-dot"></span> Online</span>
+      <h1>[ OPENCODE // API_GATEWAY ]</h1>
+      <span class="badge-status" id="server-status"><span class="pulse-dot"></span> [SYS_ONLINE]</span>
     </div>
     <nav>
-      <button class="active" onclick="switchTab('playground')">Chat Tester</button>
-      <button onclick="switchTab('relay')">Relay Server</button>
-      <button onclick="switchTab('keys')">Config & Keys</button>
+      <button class="active" onclick="switchTab('playground')">[01] PLAYGROUND</button>
+      <button onclick="switchTab('relay')">[02] RELAY_POOL</button>
+      <button onclick="switchTab('keys')">[03] VAULT_CONFIG</button>
     </nav>
   </header>
 
   <!-- TAB 1: CHAT PLAYGROUND -->
   <div id="tab-playground" class="tab-content active">
     <div class="grid grid-play">
-      <!-- Settings Panel -->
+      <!-- Cyberdeck Controls -->
       <div class="card">
-        <h2 class="card-title">Settings</h2>
+        <h2 class="card-title">// PARAMETER_MATRIX</h2>
         
-        <label for="model-select">Target Model</label>
+        <label for="model-select">Target Model ID</label>
         <select id="model-select">
-          <option value="">Loading models...</option>
+          <option value="">Querying catalog nodes...</option>
         </select>
 
-        <label for="temperature-input">Temperature: <span id="temp-val">0.7</span></label>
-        <input type="range" id="temperature-input" min="0" max="1" step="0.1" value="0.7" style="width:100%; margin-bottom:14px;" oninput="document.getElementById('temp-val').textContent=this.value">
+        <label for="temperature-input">Temperature Flux: <span id="temp-val" style="color:var(--accent);">0.7</span></label>
+        <input type="range" id="temperature-input" min="0" max="1" step="0.1" value="0.7" style="width:100%; margin-bottom:16px; accent-color:var(--accent);" oninput="document.getElementById('temp-val').textContent=this.value">
 
-        <div class="switch-row" style="margin-bottom:14px;">
-          <span style="font-size:0.85rem; font-weight:600;">Stream Response (SSE)</span>
+        <div class="switch-row">
+          <div>
+            <div style="font-size:0.75rem; font-weight:700; color:var(--text);">SSE_STREAMING</div>
+            <div style="font-size:0.68rem; color:var(--text-muted);">Real-time token pipeline</div>
+          </div>
           <label class="switch">
             <input type="checkbox" id="stream-toggle" checked>
             <span class="slider"></span>
           </label>
         </div>
 
-        <button class="btn btn-secondary" style="width:100%;" onclick="clearChat()">🗑 Clear Conversation</button>
+        <button class="btn btn-secondary" style="width:100%;" onclick="clearChat()">[ CLEAR_BUFFER ]</button>
 
-        <div style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
-          <p>💡 Models with reasoning tokens will automatically display an expandable thought container.</p>
+        <div style="margin-top: 20px; font-size: 0.72rem; color: var(--text-muted); border-left: 2px solid var(--accent); padding-left: 8px;">
+          Note: OpenCode and Kilo reasoning tokens stream automatically into the thought container.
         </div>
       </div>
 
-      <!-- Chat Panel -->
+      <!-- CRT Monitor Terminal -->
       <div class="chat-box">
         <div class="chat-messages" id="chat-messages">
-          <div class="message assistant">👋 Halo! Pilih model di sebelah kiri dan mulai tes percakapan gratis Anda melalui OpenCode Zen atau KiloCode Gateway.</div>
+          <div class="message assistant">
+            <div class="msg-header">// SYSTEM_NOTIFICATION</div>
+            Gateway interface initialized. Ready to execute free model inference via OpenCode Zen or KiloCode Gateway.
+          </div>
         </div>
         <div class="chat-input-bar">
-          <textarea id="chat-input" placeholder="Ketik pesan lalu tekan Send..." onkeydown="handleKey(event)"></textarea>
-          <button class="btn" id="send-btn" onclick="sendMessage()">Send</button>
-          <button class="btn btn-danger btn-sm" id="stop-btn" style="display:none;" onclick="stopGeneration()">Stop</button>
+          <textarea id="chat-input" placeholder="Enter prompt to execute..." onkeydown="handleKey(event)"></textarea>
+          <button class="btn" id="send-btn" onclick="sendMessage()">[ EXECUTE ]</button>
+          <button class="btn btn-danger btn-sm" id="stop-btn" style="display:none;" onclick="stopGeneration()">[ ABORT ]</button>
         </div>
       </div>
     </div>
@@ -355,17 +585,17 @@
   <!-- TAB 2: RELAY MANAGEMENT -->
   <div id="tab-relay" class="tab-content">
     <div class="grid grid-2">
-      <!-- Relay Status & List -->
+      <!-- Relay Status & Active Pool -->
       <div class="card">
         <h2 class="card-title">
-          <span>Relay Egress Pool</span>
-          <span class="badge" id="relay-indicator">Direct</span>
+          <span>// EGRESS_ROUTING_POOL</span>
+          <span class="badge-status" id="relay-indicator">DIRECT</span>
         </h2>
         
         <div class="switch-row">
           <div>
-            <div style="font-weight:600; font-size:0.9rem;">Aktifkan Relay Egress</div>
-            <div style="font-size:0.75rem; color:var(--text-muted);">Rute keluar melalui relay worker untuk menghindari rate limit IP</div>
+            <div style="font-weight:700; font-size:0.8rem; color:var(--text);">RELAY_EGRESS_TUNNEL</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Mask IP behind edge worker to prevent rate limits</div>
           </div>
           <label class="switch">
             <input type="checkbox" id="relay-toggle" onchange="toggleRelay(this.checked)">
@@ -373,30 +603,30 @@
           </label>
         </div>
 
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
-          Relay Hits Count: <strong id="relay-hits-count" style="color:var(--text);">0</strong>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">
+          TUNNEL_HITS_COUNT: <strong id="relay-hits-count" style="color:var(--accent);">0</strong>
         </div>
 
-        <label>Saved Relays</label>
+        <label>CONFIGURED_RELAY_NODES</label>
         <div id="relay-list">
-          <div style="color:var(--text-muted); font-size:0.85rem;">Memuat daftar relay...</div>
+          <div style="color:var(--text-muted); font-size:0.8rem;">Querying relay state...</div>
         </div>
       </div>
 
       <!-- Add New Relay -->
       <div class="card">
-        <h2 class="card-title">Tambah Relay Baru</h2>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">
-          Relay server adalah worker (Vercel Edge, Cloudflare, atau Deno) yang meneruskan request dengan pattern header <code>x-relay-target</code> dan <code>x-relay-path</code>.
+        <h2 class="card-title">// REGISTER_RELAY_NODE</h2>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
+          Relay nodes forward packets via <code>x-relay-target</code> and <code>x-relay-path</code> edge headers (Vercel Edge, Cloudflare, Deno).
         </p>
 
-        <label for="new-relay-url">Relay Worker URL</label>
-        <input type="text" id="new-relay-url" placeholder="https://my-relay-worker.vercel.app">
+        <label for="new-relay-url">RELAY_WORKER_URL</label>
+        <input type="text" id="new-relay-url" placeholder="https://my-relay.vercel.app">
 
-        <label for="new-relay-label">Label (Opsional)</label>
-        <input type="text" id="new-relay-label" placeholder="Contoh: Vercel Edge SG">
+        <label for="new-relay-label">NODE_DESCRIPTOR (OPTIONAL)</label>
+        <input type="text" id="new-relay-label" placeholder="e.g. Vercel SG Edge">
 
-        <button class="btn" style="width:100%;" onclick="submitAddRelay()">+ Simpan Relay</button>
+        <button class="btn" style="width:100%;" onclick="submitAddRelay()">[ MOUNT_RELAY ]</button>
       </div>
     </div>
   </div>
@@ -404,26 +634,26 @@
   <!-- TAB 3: CONFIG & KEYS -->
   <div id="tab-keys" class="tab-content">
     <div class="card">
-      <h2 class="card-title">Kredensial & Endpoint Lokal</h2>
+      <h2 class="card-title">// CREDENTIAL_VAULT</h2>
 
-      <label>Local API Key</label>
+      <label>LOCAL_AUTHORIZATION_BEARER</label>
       <div class="code-pill">
         <code id="local-key-display">Loading...</code>
-        <button class="btn btn-secondary btn-sm" onclick="copyKey()">Copy</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyKey()">[ COPY_KEY ]</button>
       </div>
 
-      <label>OpenAI Base URL</label>
+      <label>OPENAI_BASE_ENDPOINT</label>
       <div class="code-pill">
         <code id="base-url-display">http://127.0.0.1:18080/v1</code>
-        <button class="btn btn-secondary btn-sm" onclick="copyBaseUrl()">Copy</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyBaseUrl()">[ COPY_URL ]</button>
       </div>
 
-      <h3 style="font-size:0.95rem; font-weight:600; margin:20px 0 10px;">Contoh Integrasi cURL</h3>
-      <div class="code-pill" style="white-space: pre-wrap; font-size: 0.8rem;">
+      <label>TERMINAL_CURL_EXECUTION</label>
+      <div class="instruction-block">
 <code id="curl-example">curl http://127.0.0.1:18080/v1/chat/completions \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Halo!"}]}'</code>
+  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Ping!"}]}'</code>
       </div>
     </div>
   </div>
@@ -452,12 +682,12 @@
 `curl ${window.location.origin}/v1/chat/completions \\
   -H "Authorization: Bearer ${activeKey}" \\
   -H "Content-Type: application/json" \\
-  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Halo!"}]}'`;
+  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Ping!"}]}'`;
 
         await loadModels();
         await loadRelayData();
       } catch (e) {
-        console.error("Init failed:", e);
+        console.error("Initialization failed:", e);
       }
     }
 
@@ -471,14 +701,14 @@
         select.innerHTML = '';
         if (json.data && json.data.length) {
           const kiloGroup = document.createElement('optgroup');
-          kiloGroup.label = "KiloCode Gateway (Free)";
+          kiloGroup.label = "KILODE_GATEWAY // FREE";
           const opencodeGroup = document.createElement('optgroup');
-          opencodeGroup.label = "OpenCode Zen (Free)";
+          opencodeGroup.label = "OPENCODE_ZEN // FREE";
 
           json.data.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.id;
-            opt.textContent = `${m.id} ${m.reasoning ? '🧠' : ''}`;
+            opt.textContent = `${m.id} ${m.reasoning ? '[REASONING]' : ''}`;
             if (m.owned_by === 'kilocode') kiloGroup.appendChild(opt);
             else opencodeGroup.appendChild(opt);
           });
@@ -486,7 +716,7 @@
           select.appendChild(opencodeGroup);
         }
       } catch (err) {
-        console.error("Failed loading models", err);
+        console.error("Failed querying model catalog", err);
       }
     }
 
@@ -500,16 +730,16 @@
         
         const badge = document.getElementById('relay-indicator');
         if (data.enabled && data.url) {
-          badge.textContent = "Relay: " + (data.url.replace(/^https?:\/\//, '').slice(0, 25) + '...');
-          badge.className = "badge";
+          badge.textContent = "RELAY: " + (data.url.replace(/^https?:\/\//, '').slice(0, 22) + '...');
+          badge.className = "badge-status";
         } else {
-          badge.textContent = "Direct (Relay OFF)";
-          badge.className = "badge off";
+          badge.textContent = "DIRECT [OFF]";
+          badge.className = "badge-status off";
         }
 
         const container = document.getElementById('relay-list');
         if (!data.relays || data.relays.length === 0) {
-          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">Belum ada relay tersimpan. Tambahkan di form sebelah kanan.</div>';
+          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; padding:8px 0;">No relay nodes mounted. Add one via the registration panel.</div>';
           return;
         }
 
@@ -520,18 +750,18 @@
           item.className = 'relay-item';
           item.innerHTML = `
             <div style="flex:1;">
-              <div class="relay-url">${isActive ? '★ ' : ''}${r.url}</div>
-              <div class="relay-label">${r.label || 'Relay'} · ${r.healthy ? '🟢 Healthy' : '🟡 Cooling down'}</div>
+              <div class="relay-url">${isActive ? '[ACTIVE] ' : ''}${r.url}</div>
+              <div class="relay-label">${r.label || 'Relay Node'} :: ${r.healthy ? '[NODE_HEALTHY]' : '[NODE_COOLING_DOWN]'}</div>
             </div>
-            <div style="display:flex; gap:6px;">
-              ${!isActive ? `<button class="btn btn-secondary btn-sm" onclick="setActiveRelay('${r.url}')">Use</button>` : '<span style="font-size:0.75rem; color:var(--success); font-weight:600; padding:4px;">Active</span>'}
-              <button class="btn btn-danger btn-sm" onclick="removeRelay('${r.url}')">Del</button>
+            <div style="display:flex; gap:8px;">
+              ${!isActive ? `<button class="btn btn-secondary btn-sm" onclick="setActiveRelay('${r.url}')">[ROUTING_KEY]</button>` : '<span style="font-size:0.75rem; color:var(--success); font-weight:700; padding:6px;">[MOUNTED]</span>'}
+              <button class="btn btn-danger btn-sm" onclick="removeRelay('${r.url}')">[PURGE]</button>
             </div>
           `;
           container.appendChild(item);
         });
       } catch (e) {
-        console.error("Failed loading relay data", e);
+        console.error("Failed querying relay pool", e);
       }
     }
 
@@ -554,7 +784,7 @@
     }
 
     async function removeRelay(url) {
-      if (!confirm(`Hapus relay ${url}?`)) return;
+      if (!confirm(`Purge relay node ${url}?`)) return;
       await fetch('/api/relay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -566,7 +796,7 @@
     async function submitAddRelay() {
       const url = document.getElementById('new-relay-url').value.trim();
       const label = document.getElementById('new-relay-label').value.trim();
-      if (!url) return alert('Silakan masukkan URL relay');
+      if (!url) return alert('Enter valid worker URL');
       try {
         const res = await fetch('/api/relay', {
           method: 'POST',
@@ -575,7 +805,7 @@
         });
         if (!res.ok) {
           const err = await res.json();
-          return alert(err.error?.message || 'Gagal menambahkan relay');
+          return alert(err.error?.message || 'Failed mounting relay node');
         }
         document.getElementById('new-relay-url').value = '';
         document.getElementById('new-relay-label').value = '';
@@ -594,7 +824,7 @@
 
     function clearChat() {
       chatHistory = [];
-      document.getElementById('chat-messages').innerHTML = '<div class="message assistant">👋 Obrolan dibersihkan. Silakan mulai pertanyaan baru!</div>';
+      document.getElementById('chat-messages').innerHTML = '<div class="message assistant"><div class="msg-header">// SYSTEM_BUFFER</div>Buffer cleared. Ready for next prompt.</div>';
     }
 
     async function sendMessage() {
@@ -609,12 +839,13 @@
       const messagesContainer = document.getElementById('chat-messages');
       const userBubble = document.createElement('div');
       userBubble.className = 'message user';
-      userBubble.textContent = text;
+      userBubble.innerHTML = `<div class="msg-header">// USER@TERMUX</div><div class="user-text"></div>`;
+      userBubble.querySelector('.user-text').textContent = text;
       messagesContainer.appendChild(userBubble);
 
       const assistantBubble = document.createElement('div');
       assistantBubble.className = 'message assistant';
-      assistantBubble.textContent = '...';
+      assistantBubble.innerHTML = `<div class="msg-header">// AI_RESPONSE</div><div class="reply-text">...</div>`;
       messagesContainer.appendChild(assistantBubble);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
@@ -642,14 +873,16 @@
           signal: abortController.signal
         });
 
+        const replyTarget = assistantBubble.querySelector('.reply-text');
+
         if (!res.ok) {
           const errData = await res.json().catch(() => ({ error: { message: res.statusText } }));
-          assistantBubble.textContent = `❌ Error (${res.status}): ${errData.error?.message || 'Upstream failed'}`;
+          replyTarget.textContent = `[ERROR ${res.status}] ${errData.error?.message || 'Upstream pipeline failure'}`;
           return;
         }
 
         if (isStream) {
-          assistantBubble.textContent = '';
+          replyTarget.textContent = '';
           let fullContent = '';
           let fullThought = '';
           let thoughtContainer = null;
@@ -686,18 +919,18 @@
                     thoughtContainer = document.createElement('details');
                     thoughtContainer.className = 'thought-details';
                     thoughtContainer.open = true;
-                    thoughtContainer.innerHTML = '<summary>Thinking Process</summary><div class="thought-body"></div>';
-                    assistantBubble.prepend(thoughtContainer);
+                    thoughtContainer.innerHTML = '<summary>[THINKING_MATRIX]</summary><div class="thought-body"></div>';
+                    assistantBubble.insertBefore(thoughtContainer, replyTarget);
                   }
                   thoughtContainer.querySelector('.thought-body').textContent = fullThought;
                 }
 
-                // Standard content tokens
+                // Content tokens
                 if (delta.content) {
                   fullContent += delta.content;
                   if (!contentSpan) {
                     contentSpan = document.createElement('span');
-                    assistantBubble.appendChild(contentSpan);
+                    replyTarget.appendChild(contentSpan);
                   }
                   contentSpan.textContent = fullContent;
                 }
@@ -707,17 +940,17 @@
           }
           chatHistory.push({ role: 'assistant', content: fullContent });
         } else {
-          // Non-streaming response
           const json = await res.json();
-          const content = json.choices?.[0]?.message?.content || '(Empty reply)';
-          assistantBubble.textContent = content;
+          const content = json.choices?.[0]?.message?.content || '[EMPTY_REPLY]';
+          replyTarget.textContent = content;
           chatHistory.push({ role: 'assistant', content });
         }
       } catch (err) {
+        const replyTarget = assistantBubble.querySelector('.reply-text');
         if (err.name === 'AbortError') {
-          assistantBubble.textContent += ' [Canceled]';
+          replyTarget.textContent += ' [STREAM_TERMINATED]';
         } else {
-          assistantBubble.textContent = '❌ Request failed: ' + err.message;
+          replyTarget.textContent = '[FAULT] ' + err.message;
         }
       } finally {
         document.getElementById('send-btn').style.display = 'inline-flex';
@@ -733,12 +966,12 @@
 
     function copyKey() {
       navigator.clipboard.writeText(activeKey);
-      alert('Local API Key copied to clipboard!');
+      alert('Local authorization token copied.');
     }
 
     function copyBaseUrl() {
       navigator.clipboard.writeText(window.location.origin + '/v1');
-      alert('Base URL copied to clipboard!');
+      alert('OpenAI base endpoint copied.');
     }
 
     init();
