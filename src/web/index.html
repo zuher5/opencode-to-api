@@ -276,17 +276,29 @@
 
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #d1d5db; transition: .2s; border-radius: 24px;
+      background-color: #ffffff;
+      border: 1.5px solid #d1d5db;
+      transition: .2s;
+      border-radius: 24px;
     }
 
     .slider:before {
-      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
-      background-color: white; transition: .2s; border-radius: 50%;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+      position: absolute; content: ""; height: 16px; width: 16px; left: 2.5px; bottom: 2.5px;
+      background-color: #9ca3af;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
-    input:checked + .slider { background-color: var(--primary); }
-    input:checked + .slider:before { transform: translateX(20px); }
+    input:checked + .slider {
+      background-color: #ffffff;
+      border-color: #000000;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+      background-color: #000000;
+    }
 
     /* Chat Area */
     .chat-box {
@@ -457,12 +469,54 @@
       background: var(--surface-subtle);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 16px;
-      font-size: 0.825rem;
+      padding: 14px 16px;
+      font-size: 0.8rem;
       color: #374151;
-      margin-top: 14px;
+      margin-top: 10px;
       white-space: pre-wrap;
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      overflow-x: auto;
+      max-width: 100%;
+      box-sizing: border-box;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .instruction-block code {
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      display: block;
+      max-width: 100%;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+      }
+      header {
+        padding: 12px 14px;
+      }
+      nav {
+        width: 100%;
+        overflow-x: auto;
+      }
+      nav button {
+        padding: 8px 12px;
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+      .card {
+        padding: 16px 14px;
+      }
+      .code-pill {
+        padding: 10px 12px;
+        font-size: 0.8rem;
+      }
+      .instruction-block {
+        padding: 12px;
+        font-size: 0.75rem;
+      }
     }
   </style>
 </head>
@@ -596,10 +650,13 @@
         <button class="btn btn-secondary btn-sm" onclick="copyBaseUrl()">Copy</button>
       </div>
 
-      <label>cURL Example</label>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+        <label style="margin-bottom: 0;">cURL Example</label>
+        <button class="btn btn-secondary btn-sm" onclick="copyCurl()">Copy</button>
+      </div>
       <div class="instruction-block">
 <code id="curl-example">curl http://127.0.0.1:18080/v1/chat/completions \
-  -H "Authorization: Bearer <API_KEY>" \
+  -H "Authorization: Bearer &lt;API_KEY&gt;" \
   -H "Content-Type: application/json" \
   -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Hello!"}]}'</code>
       </div>
@@ -919,6 +976,12 @@
     function copyBaseUrl() {
       navigator.clipboard.writeText(window.location.origin + '/v1');
       alert('Base URL copied to clipboard.');
+    }
+
+    function copyCurl() {
+      const code = document.getElementById('curl-example').textContent;
+      navigator.clipboard.writeText(code);
+      alert('cURL command copied to clipboard.');
     }
 
     init();
