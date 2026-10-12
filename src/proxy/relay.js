@@ -51,7 +51,6 @@ export function getRelayStats() {
 }
 
 export function getRelayDetails() {
-  const healthMap = new Map();
   return {
     enabled: relayState.enabled,
     url: relayState.url,

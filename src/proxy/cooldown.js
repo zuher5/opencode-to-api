@@ -20,7 +20,12 @@ export function markRelayFailure(url, status) {
 
 export function isRelayHealthy(url) {
   const h = relayHealth.get(url);
-  return !h || h.cooldownUntil <= Date.now();
+  if (!h) return true;
+  if (h.cooldownUntil <= Date.now()) {
+    relayHealth.delete(url);
+    return true;
+  }
+  return false;
 }
 
 export function getRelayHealthMap() {

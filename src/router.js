@@ -24,6 +24,18 @@ import { pipeUpstreamStream, aggregateStreamToResponse } from "./proxy/stream.js
 const ALLOWED_METHODS = new Set(["GET", "POST", "OPTIONS", "HEAD"]);
 const PATH_TRAVERSAL_PATTERN = /\.\./;
 
+let cachedHtml = null;
+let cachedHtmlPath = null;
+
+function getWebHtml() {
+  if (cachedHtml && !config.debug) return cachedHtml;
+  if (!cachedHtmlPath) {
+    cachedHtmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "web", "index.html");
+  }
+  cachedHtml = fs.readFileSync(cachedHtmlPath, "utf8");
+  return cachedHtml;
+}
+
 function getClientIP(req) {
   const addr = req.socket?.remoteAddress;
   if (!addr) return "127.0.0.1";
@@ -96,9 +108,8 @@ export async function handleRequest(req, res) {
 
   // Web GUI HTML Page
   if (method === "GET" && (pathname === "/" || pathname === "/gui")) {
-    const htmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "web", "index.html");
     try {
-      const html = fs.readFileSync(htmlPath, "utf8");
+      const html = getWebHtml();
       res.writeHead(200, {
         "content-type": "text/html; charset=utf-8",
         "content-length": Buffer.byteLength(html),

@@ -17,18 +17,31 @@ function rateLimitKey(upstream, ip, now) {
   return `${upstream}:${new Date(now).toISOString().slice(0, 10)}:${ip}`;
 }
 
+function pruneExpiredKeys(now) {
+  for (const [key, entry] of rateLimitMap.entries()) {
+    if (entry.resetAt <= now) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
+
 export function checkRateLimit(ip, upstream) {
   const max = RATE_LIMIT_MAX[upstream] || 200;
   const now = Date.now();
   const key = rateLimitKey(upstream, ip, now);
   const entry = rateLimitMap.get(key);
 
+  if (rateLimitMap.size > 500) {
+    pruneExpiredKeys(now);
+  }
+
   if (!entry || entry.resetAt <= now) {
+    const resetAt = rateLimitResetAt(upstream, now);
     rateLimitMap.set(key, {
       count: 1,
-      resetAt: rateLimitResetAt(upstream, now),
+      resetAt,
     });
-    return { allowed: true, remaining: max - 1, resetAt: rateLimitResetAt(upstream, now) };
+    return { allowed: true, remaining: max - 1, resetAt };
   }
 
   if (entry.count >= max) {

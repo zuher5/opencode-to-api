@@ -1,8 +1,11 @@
 import { config } from "../config.js";
 
+const SENSITIVE_TOKEN_REGEX = /(Bearer\s+|api[_-]?key[:=]\s*)[a-zA-Z0-9_.-]{6,}/gi;
+const SENSITIVE_KEY_NAME_REGEX = /key|secret|token|auth/i;
+
 function sanitize(value) {
   if (typeof value === "string") {
-    return value.replace(/(Bearer\s+|api[_-]?key[:=]\s*)[a-zA-Z0-9_\-\.]{6,}/gi, "$1***REDACTED***");
+    return value.replace(SENSITIVE_TOKEN_REGEX, "$1***REDACTED***");
   }
   if (value && typeof value === "object") {
     if (Array.isArray(value)) {
@@ -10,7 +13,7 @@ function sanitize(value) {
     }
     const clean = {};
     for (const [k, v] of Object.entries(value)) {
-      if (/key|secret|token|auth/i.test(k) && typeof v === "string") {
+      if (SENSITIVE_KEY_NAME_REGEX.test(k) && typeof v === "string") {
         clean[k] = v.length > 8 ? `${v.slice(0, 4)}...${v.slice(-4)}` : "***";
       } else {
         clean[k] = sanitize(v);

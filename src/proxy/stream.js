@@ -28,6 +28,8 @@ export function pipeUpstreamStream(stream, res, req, status = 200) {
   nodeStream.pipe(res);
 
   const cleanup = () => {
+    req.off("aborted", cleanup);
+    req.off("close", cleanup);
     if (!nodeStream.destroyed) {
       nodeStream.destroy();
     }
@@ -35,6 +37,14 @@ export function pipeUpstreamStream(stream, res, req, status = 200) {
 
   req.on("aborted", cleanup);
   req.on("close", cleanup);
+  nodeStream.on("end", () => {
+    req.off("aborted", cleanup);
+    req.off("close", cleanup);
+  });
+  nodeStream.on("close", () => {
+    req.off("aborted", cleanup);
+    req.off("close", cleanup);
+  });
 }
 
 export async function aggregateStreamToResponse(webStream, modelName) {

@@ -2,7 +2,7 @@
 
 import { config } from "./config.js";
 import { log } from "./utils/logger.js";
-import { initLocalAuth, getLocalApiKey } from "./auth/local-auth.js";
+import { initLocalAuth } from "./auth/local-auth.js";
 import { initCatalog } from "./catalog/discovery.js";
 import { refreshOpenCodeUA } from "./adapters/opencode-zen.js";
 import { startServer, stopServer } from "./server.js";

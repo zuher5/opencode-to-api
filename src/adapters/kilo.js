@@ -1,5 +1,3 @@
-import { config } from "../config.js";
-
 export function kiloHeaders(customAuth = null) {
   const headers = {
     "Content-Type": "application/json",
