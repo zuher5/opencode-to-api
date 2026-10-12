@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenCode-to-API Dashboard & Playground</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #0b1120;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand h1 { font-size: 1.25rem; font-weight: 700; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+      font-weight: 600;
+    }
+    .badge.off {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--text-muted);
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+    }
+    nav {
+      display: flex;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    nav button {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    nav button.active {
+      background: var(--primary);
+      color: white;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Cards & Layout */
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 840px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+      .grid-play { grid-template-columns: 320px 1fr; }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Forms & Inputs */
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="text"], input[type="password"], select, textarea {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      background: var(--primary);
+      color: white;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #162032; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; }
+
+    /* Switch toggle */
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: var(--code-bg);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #475569; transition: .3s; border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background-color: white; transition: .3s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Relay list items */
+    .relay-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .relay-url { font-family: monospace; font-size: 0.85rem; word-break: break-all; }
+    .relay-label { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* Chat Playground */
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      height: 550px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-bottom-left-radius: 2px;
+    }
+    .thought-details {
+      margin-bottom: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 3px solid var(--warning);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+    .thought-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--warning);
+      outline: none;
+    }
+    .chat-input-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--card-border);
+    }
+    .chat-input-bar textarea {
+      flex: 1;
+      height: 48px;
+      margin-bottom: 0;
+      resize: none;
+      padding: 10px;
+    }
+    pre, code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .code-pill {
+      background: var(--code-bg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>⚡ OpenCode-to-API</h1>
+      <span class="badge" id="server-status"><span class="pulse-dot"></span> Online</span>
+    </div>
+    <nav>
+      <button class="active" onclick="switchTab('playground')">Chat Tester</button>
+      <button onclick="switchTab('relay')">Relay Server</button>
+      <button onclick="switchTab('keys')">Config & Keys</button>
+    </nav>
+  </header>
+
+  <!-- TAB 1: CHAT PLAYGROUND -->
+  <div id="tab-playground" class="tab-content active">
+    <div class="grid grid-play">
+      <!-- Settings Panel -->
+      <div class="card">
+        <h2 class="card-title">Settings</h2>
+        
+        <label for="model-select">Target Model</label>
+        <select id="model-select">
+          <option value="">Loading models...</option>
+        </select>
+
+        <label for="temperature-input">Temperature: <span id="temp-val">0.7</span></label>
+        <input type="range" id="temperature-input" min="0" max="1" step="0.1" value="0.7" style="width:100%; margin-bottom:14px;" oninput="document.getElementById('temp-val').textContent=this.value">
+
+        <div class="switch-row" style="margin-bottom:14px;">
+          <span style="font-size:0.85rem; font-weight:600;">Stream Response (SSE)</span>
+          <label class="switch">
+            <input type="checkbox" id="stream-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <button class="btn btn-secondary" style="width:100%;" onclick="clearChat()">🗑 Clear Conversation</button>
+
+        <div style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
+          <p>💡 Models with reasoning tokens will automatically display an expandable thought container.</p>
+        </div>
+      </div>
+
+      <!-- Chat Panel -->
+      <div class="chat-box">
+        <div class="chat-messages" id="chat-messages">
+          <div class="message assistant">👋 Halo! Pilih model di sebelah kiri dan mulai tes percakapan gratis Anda melalui OpenCode Zen atau KiloCode Gateway.</div>
+        </div>
+        <div class="chat-input-bar">
+          <textarea id="chat-input" placeholder="Ketik pesan lalu tekan Send..." onkeydown="handleKey(event)"></textarea>
+          <button class="btn" id="send-btn" onclick="sendMessage()">Send</button>
+          <button class="btn btn-danger btn-sm" id="stop-btn" style="display:none;" onclick="stopGeneration()">Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: RELAY MANAGEMENT -->
+  <div id="tab-relay" class="tab-content">
+    <div class="grid grid-2">
+      <!-- Relay Status & List -->
+      <div class="card">
+        <h2 class="card-title">
+          <span>Relay Egress Pool</span>
+          <span class="badge" id="relay-indicator">Direct</span>
+        </h2>
+        
+        <div class="switch-row">
+          <div>
+            <div style="font-weight:600; font-size:0.9rem;">Aktifkan Relay Egress</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Rute keluar melalui relay worker untuk menghindari rate limit IP</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="relay-toggle" onchange="toggleRelay(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+          Relay Hits Count: <strong id="relay-hits-count" style="color:var(--text);">0</strong>
+        </div>
+
+        <label>Saved Relays</label>
+        <div id="relay-list">
+          <div style="color:var(--text-muted); font-size:0.85rem;">Memuat daftar relay...</div>
+        </div>
+      </div>
+
+      <!-- Add New Relay -->
+      <div class="card">
+        <h2 class="card-title">Tambah Relay Baru</h2>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">
+          Relay server adalah worker (Vercel Edge, Cloudflare, atau Deno) yang meneruskan request dengan pattern header <code>x-relay-target</code> dan <code>x-relay-path</code>.
+        </p>
+
+        <label for="new-relay-url">Relay Worker URL</label>
+        <input type="text" id="new-relay-url" placeholder="https://my-relay-worker.vercel.app">
+
+        <label for="new-relay-label">Label (Opsional)</label>
+        <input type="text" id="new-relay-label" placeholder="Contoh: Vercel Edge SG">
+
+        <button class="btn" style="width:100%;" onclick="submitAddRelay()">+ Simpan Relay</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: CONFIG & KEYS -->
+  <div id="tab-keys" class="tab-content">
+    <div class="card">
+      <h2 class="card-title">Kredensial & Endpoint Lokal</h2>
+
+      <label>Local API Key</label>
+      <div class="code-pill">
+        <code id="local-key-display">Loading...</code>
+        <button class="btn btn-secondary btn-sm" onclick="copyKey()">Copy</button>
+      </div>
+
+      <label>OpenAI Base URL</label>
+      <div class="code-pill">
+        <code id="base-url-display">http://127.0.0.1:18080/v1</code>
+        <button class="btn btn-secondary btn-sm" onclick="copyBaseUrl()">Copy</button>
+      </div>
+
+      <h3 style="font-size:0.95rem; font-weight:600; margin:20px 0 10px;">Contoh Integrasi cURL</h3>
+      <div class="code-pill" style="white-space: pre-wrap; font-size: 0.8rem;">
+<code id="curl-example">curl http://127.0.0.1:18080/v1/chat/completions \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Halo!"}]}'</code>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeKey = "";
+    let chatHistory = [];
+    let abortController = null;
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      event.target.classList.add('active');
+      if (name === 'relay') loadRelayData();
+    }
+
+    async function init() {
+      try {
+        const infoRes = await fetch('/api/info');
+        const info = await infoRes.json();
+        activeKey = info.apiKey || "";
+        document.getElementById('local-key-display').textContent = activeKey;
+        document.getElementById('base-url-display').textContent = window.location.origin + '/v1';
+        document.getElementById('curl-example').textContent = 
+`curl ${window.location.origin}/v1/chat/completions \\
+  -H "Authorization: Bearer ${activeKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"kilo-auto/free","messages":[{"role":"user","content":"Halo!"}]}'`;
+
+        await loadModels();
+        await loadRelayData();
+      } catch (e) {
+        console.error("Init failed:", e);
+      }
+    }
+
+    async function loadModels() {
+      try {
+        const res = await fetch('/v1/models', {
+          headers: { 'Authorization': 'Bearer ' + activeKey }
+        });
+        const json = await res.json();
+        const select = document.getElementById('model-select');
+        select.innerHTML = '';
+        if (json.data && json.data.length) {
+          const kiloGroup = document.createElement('optgroup');
+          kiloGroup.label = "KiloCode Gateway (Free)";
+          const opencodeGroup = document.createElement('optgroup');
+          opencodeGroup.label = "OpenCode Zen (Free)";
+
+          json.data.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.id} ${m.reasoning ? '🧠' : ''}`;
+            if (m.owned_by === 'kilocode') kiloGroup.appendChild(opt);
+            else opencodeGroup.appendChild(opt);
+          });
+          select.appendChild(kiloGroup);
+          select.appendChild(opencodeGroup);
+        }
+      } catch (err) {
+        console.error("Failed loading models", err);
+      }
+    }
+
+    async function loadRelayData() {
+      try {
+        const res = await fetch('/api/relay');
+        const data = await res.json();
+        
+        document.getElementById('relay-toggle').checked = Boolean(data.enabled);
+        document.getElementById('relay-hits-count').textContent = data.hits || 0;
+        
+        const badge = document.getElementById('relay-indicator');
+        if (data.enabled && data.url) {
+          badge.textContent = "Relay: " + (data.url.replace(/^https?:\/\//, '').slice(0, 25) + '...');
+          badge.className = "badge";
+        } else {
+          badge.textContent = "Direct (Relay OFF)";
+          badge.className = "badge off";
+        }
+
+        const container = document.getElementById('relay-list');
+        if (!data.relays || data.relays.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">Belum ada relay tersimpan. Tambahkan di form sebelah kanan.</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+        data.relays.forEach(r => {
+          const isActive = r.url === data.url;
+          const item = document.createElement('div');
+          item.className = 'relay-item';
+          item.innerHTML = `
+            <div style="flex:1;">
+              <div class="relay-url">${isActive ? '★ ' : ''}${r.url}</div>
+              <div class="relay-label">${r.label || 'Relay'} · ${r.healthy ? '🟢 Healthy' : '🟡 Cooling down'}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              ${!isActive ? `<button class="btn btn-secondary btn-sm" onclick="setActiveRelay('${r.url}')">Use</button>` : '<span style="font-size:0.75rem; color:var(--success); font-weight:600; padding:4px;">Active</span>'}
+              <button class="btn btn-danger btn-sm" onclick="removeRelay('${r.url}')">Del</button>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+      } catch (e) {
+        console.error("Failed loading relay data", e);
+      }
+    }
+
+    async function toggleRelay(enabled) {
+      await fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle', enabled })
+      });
+      await loadRelayData();
+    }
+
+    async function setActiveRelay(url) {
+      await fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'use', url })
+      });
+      await loadRelayData();
+    }
+
+    async function removeRelay(url) {
+      if (!confirm(`Hapus relay ${url}?`)) return;
+      await fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', url })
+      });
+      await loadRelayData();
+    }
+
+    async function submitAddRelay() {
+      const url = document.getElementById('new-relay-url').value.trim();
+      const label = document.getElementById('new-relay-label').value.trim();
+      if (!url) return alert('Silakan masukkan URL relay');
+      try {
+        const res = await fetch('/api/relay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add', url, label })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert(err.error?.message || 'Gagal menambahkan relay');
+        }
+        document.getElementById('new-relay-url').value = '';
+        document.getElementById('new-relay-label').value = '';
+        await loadRelayData();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function clearChat() {
+      chatHistory = [];
+      document.getElementById('chat-messages').innerHTML = '<div class="message assistant">👋 Obrolan dibersihkan. Silakan mulai pertanyaan baru!</div>';
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      const model = document.getElementById('model-select').value;
+      if (!text || !model) return;
+
+      input.value = '';
+      chatHistory.push({ role: 'user', content: text });
+      
+      const messagesContainer = document.getElementById('chat-messages');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'message user';
+      userBubble.textContent = text;
+      messagesContainer.appendChild(userBubble);
+
+      const assistantBubble = document.createElement('div');
+      assistantBubble.className = 'message assistant';
+      assistantBubble.textContent = '...';
+      messagesContainer.appendChild(assistantBubble);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      document.getElementById('send-btn').style.display = 'none';
+      document.getElementById('stop-btn').style.display = 'inline-flex';
+
+      const isStream = document.getElementById('stream-toggle').checked;
+      const temperature = parseFloat(document.getElementById('temperature-input').value) || 0.7;
+
+      abortController = new AbortController();
+
+      try {
+        const res = await fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + activeKey
+          },
+          body: JSON.stringify({
+            model,
+            messages: chatHistory,
+            stream: isStream,
+            temperature
+          }),
+          signal: abortController.signal
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: { message: res.statusText } }));
+          assistantBubble.textContent = `❌ Error (${res.status}): ${errData.error?.message || 'Upstream failed'}`;
+          return;
+        }
+
+        if (isStream) {
+          assistantBubble.textContent = '';
+          let fullContent = '';
+          let fullThought = '';
+          let thoughtContainer = null;
+          let contentSpan = null;
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data:')) continue;
+              const dataStr = trimmed.slice(5).trim();
+              if (dataStr === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(dataStr);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                // Reasoning tokens
+                const thoughtDelta = delta.reasoning_content || delta.reasoning;
+                if (thoughtDelta) {
+                  fullThought += thoughtDelta;
+                  if (!thoughtContainer) {
+                    thoughtContainer = document.createElement('details');
+                    thoughtContainer.className = 'thought-details';
+                    thoughtContainer.open = true;
+                    thoughtContainer.innerHTML = '<summary>Thinking Process</summary><div class="thought-body"></div>';
+                    assistantBubble.prepend(thoughtContainer);
+                  }
+                  thoughtContainer.querySelector('.thought-body').textContent = fullThought;
+                }
+
+                // Standard content tokens
+                if (delta.content) {
+                  fullContent += delta.content;
+                  if (!contentSpan) {
+                    contentSpan = document.createElement('span');
+                    assistantBubble.appendChild(contentSpan);
+                  }
+                  contentSpan.textContent = fullContent;
+                }
+              } catch {}
+            }
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+          chatHistory.push({ role: 'assistant', content: fullContent });
+        } else {
+          // Non-streaming response
+          const json = await res.json();
+          const content = json.choices?.[0]?.message?.content || '(Empty reply)';
+          assistantBubble.textContent = content;
+          chatHistory.push({ role: 'assistant', content });
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          assistantBubble.textContent += ' [Canceled]';
+        } else {
+          assistantBubble.textContent = '❌ Request failed: ' + err.message;
+        }
+      } finally {
+        document.getElementById('send-btn').style.display = 'inline-flex';
+        document.getElementById('stop-btn').style.display = 'none';
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        abortController = null;
+      }
+    }
+
+    function stopGeneration() {
+      if (abortController) abortController.abort();
+    }
+
+    function copyKey() {
+      navigator.clipboard.writeText(activeKey);
+      alert('Local API Key copied to clipboard!');
+    }
+
+    function copyBaseUrl() {
+      navigator.clipboard.writeText(window.location.origin + '/v1');
+      alert('Base URL copied to clipboard!');
+    }
+
+    init();
+  </script>
+</body>
+</html>

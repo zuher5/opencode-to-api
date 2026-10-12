@@ -9,6 +9,8 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 ## Fitur Utama
 
 - **Zero Dependency**: Murni dibangun dengan modul bawaan Node.js (Node 20+), tanpa instalasi paket eksternal npm yang berat.
+- **Web GUI & Chat Playground**: Tersedia antarmuka web interaktif di `http://127.0.0.1:18080/` untuk chat testing langsung, pengaturan relay kustom, dan salin Local API Key.
+- **Manajemen Relay Server**: Dukungan konfigurasi relay egress (toggle on/off, tambah relay kustom, switch relay aktif, dan auto failover dengan cooldown).
 - **OpenAI-Compatible**:
   - `GET /v1/models`
   - `POST /v1/chat/completions` (mendukung streaming SSE dan non-streaming!)
@@ -79,11 +81,17 @@ Server akan mencetak URL dan Local API Key saat startup:
 └────────────────────────────────────────────────────────┘
 
 🚀 Server successfully running!
+  • Web Dashboard  : http://127.0.0.1:18080/
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
   • Local API Key  : sk-local-xxxxxxxxxxxxxxxx
   • Active Models  : 24 models available
 ```
+
+Buka `http://127.0.0.1:18080/` di browser (Chrome, Firefox, dsb.) untuk mengakses:
+1. **Chat Tester**: UI percakapan realtime dengan streaming SSE, visualisasi token reasoning (*thinking process*), dan pengatur parameter.
+2. **Relay Server**: Tambah URL worker relay sendiri (Vercel Edge / Cloudflare), aktifkan toggle relay, atau switch relay aktif.
+3. **Config & Keys**: Salin Local API Key dan contoh perintah cURL.
 
 ### 2. Di Windows PowerShell
 

@@ -30,6 +30,7 @@ async function main() {
     config.port = port;
 
     console.log(`🚀 Server successfully running!`);
+    console.log(`  • Web Dashboard  : http://${host}:${port}/`);
     console.log(`  • Local Endpoint : http://${host}:${port}/v1`);
     console.log(`  • Health Check   : http://${host}:${port}/health`);
     console.log(`  • Local API Key  : ${localKey}`);

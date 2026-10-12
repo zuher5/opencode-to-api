@@ -50,6 +50,79 @@ export function getRelayStats() {
   };
 }
 
+export function getRelayDetails() {
+  const healthMap = new Map();
+  return {
+    enabled: relayState.enabled,
+    url: relayState.url,
+    hits: relayHits,
+    relays: relayState.relays.map((r) => {
+      const healthy = isRelayHealthy(r.url);
+      return {
+        ...r,
+        healthy,
+      };
+    }),
+  };
+}
+
+export function addRelay(rawUrl, label = "") {
+  const cleanUrl = (rawUrl || "").trim().replace(/\/+$/, "");
+  if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
+    throw new Error("Invalid relay URL. Must start with http:// or https://");
+  }
+  const existing = relayState.relays.find((r) => r.url === cleanUrl);
+  if (!existing) {
+    relayState.relays.push({
+      url: cleanUrl,
+      label: (label || "").trim() || "Manual Relay",
+      addedAt: new Date().toISOString(),
+    });
+  } else if (label) {
+    existing.label = label.trim();
+  }
+  if (!relayState.url) {
+    relayState.url = cleanUrl;
+  }
+  saveRelayState(relayState);
+  return getRelayDetails();
+}
+
+export function removeRelay(rawUrl) {
+  const cleanUrl = (rawUrl || "").trim().replace(/\/+$/, "");
+  relayState.relays = relayState.relays.filter((r) => r.url !== cleanUrl);
+  if (relayState.url === cleanUrl) {
+    relayState.url = relayState.relays.length ? relayState.relays[0].url : "";
+  }
+  saveRelayState(relayState);
+  return getRelayDetails();
+}
+
+export function setActiveRelay(rawUrl) {
+  const cleanUrl = (rawUrl || "").trim().replace(/\/+$/, "");
+  if (cleanUrl) {
+    const existing = relayState.relays.find((r) => r.url === cleanUrl);
+    if (!existing) {
+      relayState.relays.push({
+        url: cleanUrl,
+        label: "Manual Relay",
+        addedAt: new Date().toISOString(),
+      });
+    }
+    relayState.url = cleanUrl;
+  } else {
+    relayState.url = "";
+  }
+  saveRelayState(relayState);
+  return getRelayDetails();
+}
+
+export function setRelayEnabled(enabled) {
+  relayState.enabled = Boolean(enabled);
+  saveRelayState(relayState);
+  return getRelayDetails();
+}
+
 export function updateRelayConfig(newState) {
   relayState = { ...relayState, ...newState };
   saveRelayState(relayState);

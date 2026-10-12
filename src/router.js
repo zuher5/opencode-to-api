@@ -1,13 +1,24 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { log } from "./utils/logger.js";
 import { sendJsonError } from "./utils/errors.js";
-import { validateLocalAuth } from "./auth/local-auth.js";
+import { validateLocalAuth, getLocalApiKey } from "./auth/local-auth.js";
 import { getAliveCatalog, findModel } from "./catalog/discovery.js";
 import { KILO_MODEL_IDS } from "./catalog/definitions.js";
 import { transformOpencodeBody, opencodeHeaders } from "./adapters/opencode-zen.js";
 import { kiloHeaders } from "./adapters/kilo.js";
 import { checkRateLimit } from "./proxy/rate-limit.js";
-import { relayFetch, getRelayStats } from "./proxy/relay.js";
+import {
+  relayFetch,
+  getRelayStats,
+  getRelayDetails,
+  addRelay,
+  removeRelay,
+  setActiveRelay,
+  setRelayEnabled,
+} from "./proxy/relay.js";
 import { pipeUpstreamStream, aggregateStreamToResponse } from "./proxy/stream.js";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "OPTIONS", "HEAD"]);
@@ -81,6 +92,97 @@ export async function handleRequest(req, res) {
       "content-length": Buffer.byteLength(body),
     });
     return res.end(body);
+  }
+
+  // Web GUI HTML Page
+  if (method === "GET" && (pathname === "/" || pathname === "/gui")) {
+    const htmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "web", "index.html");
+    try {
+      const html = fs.readFileSync(htmlPath, "utf8");
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "content-length": Buffer.byteLength(html),
+      });
+      return res.end(html);
+    } catch (err) {
+      return sendJsonError(res, 500, "Web GUI HTML file missing", "api_error");
+    }
+  }
+
+  // GET /api/info
+  if (method === "GET" && pathname === "/api/info") {
+    const alive = getAliveCatalog();
+    const stats = getRelayStats();
+    const body = JSON.stringify({
+      status: "ok",
+      uptime: process.uptime(),
+      apiKey: getLocalApiKey(),
+      modelsCount: alive.length,
+      relay: stats,
+    });
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "content-length": Buffer.byteLength(body),
+    });
+    return res.end(body);
+  }
+
+  // GET /api/relay
+  if (method === "GET" && pathname === "/api/relay") {
+    const details = getRelayDetails();
+    const body = JSON.stringify(details);
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "content-length": Buffer.byteLength(body),
+    });
+    return res.end(body);
+  }
+
+  // POST /api/relay
+  if (method === "POST" && pathname === "/api/relay") {
+    let rawBody;
+    try {
+      rawBody = await readBody(req);
+    } catch (err) {
+      return sendJsonError(res, 413, err.message, "invalid_request_error");
+    }
+    let body;
+    try {
+      body = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return sendJsonError(res, 400, "Malformed JSON", "invalid_request_error");
+    }
+
+    try {
+      let result;
+      switch (body.action) {
+        case "toggle":
+          result = setRelayEnabled(body.enabled);
+          break;
+        case "add":
+          result = addRelay(body.url, body.label);
+          break;
+        case "use":
+          result = setActiveRelay(body.url);
+          break;
+        case "remove":
+          result = removeRelay(body.url);
+          break;
+        default:
+          return sendJsonError(res, 400, "Unknown relay action. Allowed: toggle, add, use, remove", "invalid_request_error");
+      }
+      const resJson = JSON.stringify(result);
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "content-length": Buffer.byteLength(resJson),
+      });
+      return res.end(resJson);
+    } catch (err) {
+      return sendJsonError(res, 400, err.message, "invalid_request_error");
+    }
   }
 
   // Authentication check for /v1/* endpoints
