@@ -20,7 +20,7 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
 - **Katalog & Model Cache**: Instant startup dengan pembacaan cache model lokal dan sinkronisasi otomatis di background.
 - **Dual Upstream Handlers**:
-  - **OpenCode Zen**: Penerapan client fingerprinting (`User-Agent` tracking, tracing headers, decoy tools `bash`, `glob`, `grep`, `read`, `edit`, `write` dengan `tool_choice: "none"`).
+  - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis pada streaming SSE dan non-streaming).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
 - **Format Streaming & Non-Streaming**: Mendukung format chunk SSE `[DONE]` serta agregasi otomatis stream menjadi respon JSON standar jika klien meminta `stream: false`.
 

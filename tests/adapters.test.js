@@ -3,33 +3,67 @@ import assert from "node:assert/strict";
 import {
   transformOpencodeBody,
   opencodeHeaders,
+  restoreToolAliases,
+  OPENCODE_EXACT_TOOLS,
   OPENCODE_FINGERPRINT_TOOLS,
 } from "../src/adapters/opencode-zen.js";
 
-test("OpenCode Zen Adapter - Chat Completions transform", () => {
+test("OpenCode Zen Adapter - Chat Completions transform (v2 gate)", () => {
   const reqBody = {
     model: "nemotron-3-ultra-free",
     messages: [{ role: "user", content: "Hello" }],
     stream: false,
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "bash",
+          description: "Run custom command",
+          parameters: { type: "object", properties: { cmd: { type: "string" } } },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "my_custom_tool",
+          description: "Custom user tool",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ],
   };
 
-  const transformed = transformOpencodeBody(reqBody);
+  const { body, responsesPath } = transformOpencodeBody(reqBody);
 
   // Must force stream: true for OpenCode gate
-  assert.equal(transformed.stream, true);
+  assert.equal(body.stream, true);
+  assert.equal(responsesPath, false);
 
-  // Must inject the full fingerprint sextet
-  assert.ok(Array.isArray(transformed.tools));
-  const toolNames = transformed.tools.map((t) => t.function?.name || t.name);
+  // Must inject exact read and shell fingerprint tools
+  assert.ok(Array.isArray(body.tools));
+  const toolNames = body.tools.map((t) => t.function?.name || t.name);
   for (const toolName of OPENCODE_FINGERPRINT_TOOLS) {
     assert.ok(toolNames.includes(toolName), `Missing required fingerprint tool: ${toolName}`);
   }
 
-  // Must set tool_choice to "none" so decoys are never called
-  assert.equal(transformed.tool_choice, "none");
+  // Caller tool named "bash" must be aliased to "bash_pi" to prevent collisions
+  assert.ok(toolNames.includes("bash_pi"));
+  assert.ok(!toolNames.includes("bash"));
+  assert.ok(toolNames.includes("my_custom_tool"));
+  assert.equal(body.__bansosToolAliases?.["bash_pi"], "bash");
+
+  // tool_choice should NOT be forced to "none" in v2 gate
+  assert.notEqual(body.tool_choice, "none");
 });
 
-test("OpenCode Zen Adapter - Muse Responses transform", () => {
+test("OpenCode Zen Adapter - Tool Alias Restoration", () => {
+  const aliases = { bash_pi: "bash", read_pi: "read" };
+  const rawText = '{"tool_calls":[{"function":{"name":"bash_pi","arguments":"ls -la"}}]}';
+  const restored = restoreToolAliases(rawText, aliases);
+  assert.equal(restored, '{"tool_calls":[{"function":{"name":"bash","arguments":"ls -la"}}]}');
+});
+
+test("OpenCode Zen Adapter - Muse Responses transform (v2 gate)", () => {
   const reqBody = {
     model: "muse-spark-1.3-contributor-free",
     input: [
@@ -39,34 +73,42 @@ test("OpenCode Zen Adapter - Muse Responses transform", () => {
     max_tokens: 4096,
   };
 
-  const transformed = transformOpencodeBody(reqBody);
+  const { body, responsesPath } = transformOpencodeBody(reqBody);
 
+  assert.equal(responsesPath, true);
   // Must set store: false
-  assert.equal(transformed.store, false);
+  assert.equal(body.store, false);
 
   // Must convert max_tokens to max_output_tokens
-  assert.equal(transformed.max_output_tokens, 4096);
-  assert.equal(transformed.max_tokens, undefined);
+  assert.equal(body.max_output_tokens, 4096);
+  assert.equal(body.max_tokens, undefined);
 
   // Must strip prior reasoning turn
-  assert.equal(transformed.input.length, 1);
-  assert.equal(transformed.input[0].type, "message");
+  assert.equal(body.input.length, 1);
+  assert.equal(body.input[0].type, "message");
 
   // Must have fingerprint tools injected into tools array
-  assert.ok(Array.isArray(transformed.tools));
-  const toolNames = transformed.tools.map((t) => t.name || t.function?.name);
+  assert.ok(Array.isArray(body.tools));
+  const toolNames = body.tools.map((t) => t.name || t.function?.name);
   for (const toolName of OPENCODE_FINGERPRINT_TOOLS) {
     assert.ok(toolNames.includes(toolName));
   }
 });
 
-test("OpenCode Zen Headers - Format and Distributed Tracing", () => {
-  const headers = opencodeHeaders();
-  assert.ok(headers["User-Agent"].startsWith("opencode/"));
-  assert.equal(headers["Authorization"], "Bearer public");
-  assert.equal(headers["x-opencode-client"], "desktop");
-  assert.match(headers["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
-  assert.match(headers["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
-  assert.ok(headers["b3"]);
-  assert.ok(headers["traceparent"]);
+test("OpenCode Zen Headers - Format and Distributed Tracing (Inference vs Catalog)", () => {
+  // Inference headers: withRequestHeader = false
+  const infHeaders = opencodeHeaders(false);
+  assert.ok(infHeaders["User-Agent"].startsWith("opencode/"));
+  assert.equal(infHeaders["Authorization"], "Bearer public");
+  assert.equal(infHeaders["x-opencode-client"], "desktop");
+  assert.match(infHeaders["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+  assert.equal(infHeaders["x-opencode-session-id"], infHeaders["x-opencode-session"]);
+  assert.equal(infHeaders["x-opencode-request"], undefined);
+  assert.ok(infHeaders["b3"]);
+  assert.ok(infHeaders["traceparent"]);
+
+  // Catalog headers: withRequestHeader = true
+  const catHeaders = opencodeHeaders(true);
+  assert.match(catHeaders["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+  assert.equal(catHeaders["x-opencode-session-id"], catHeaders["x-opencode-session"]);
 });

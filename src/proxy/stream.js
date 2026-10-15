@@ -2,8 +2,9 @@ import { Readable } from "node:stream";
 import { randomBytes } from "node:crypto";
 import { log } from "../utils/logger.js";
 import { sendJsonError } from "../utils/errors.js";
+import { restoreToolAliases } from "../adapters/opencode-zen.js";
 
-export function pipeUpstreamStream(stream, res, req, status = 200) {
+export function pipeUpstreamStream(stream, res, req, status = 200, aliases = null) {
   const nodeStream = stream instanceof Readable ? stream : Readable.fromWeb(stream);
 
   if (!res.headersSent) {
@@ -25,8 +26,6 @@ export function pipeUpstreamStream(stream, res, req, status = 200) {
     }
   });
 
-  nodeStream.pipe(res);
-
   const cleanup = () => {
     req.off("aborted", cleanup);
     req.off("close", cleanup);
@@ -45,9 +44,37 @@ export function pipeUpstreamStream(stream, res, req, status = 200) {
     req.off("aborted", cleanup);
     req.off("close", cleanup);
   });
+
+  if (aliases && Object.keys(aliases).length > 0) {
+    let carry = "";
+    nodeStream.on("data", (chunk) => {
+      const text = carry + chunk.toString("utf8");
+      const lines = text.split("\n");
+      carry = lines.pop() ?? "";
+      const out = lines
+        .map((line) =>
+          line.includes("_pi")
+            ? line.replace(/([A-Za-z0-9_-]+)_pi\b/g, (_m, base) => aliases[`${base}_pi`] ?? `${base}_pi`)
+            : line
+        )
+        .join("\n");
+      if (lines.length > 0 && !res.writableEnded) {
+        res.write(out + "\n");
+      }
+    });
+    nodeStream.on("end", () => {
+      const tail = carry.replace(/([A-Za-z0-9_-]+)_pi\b/g, (_m, base) => aliases[`${base}_pi`] ?? `${base}_pi`);
+      if (tail && !res.writableEnded) {
+        res.write(tail);
+      }
+      res.end();
+    });
+  } else {
+    nodeStream.pipe(res);
+  }
 }
 
-export async function aggregateStreamToResponse(webStream, modelName) {
+export async function aggregateStreamToResponse(webStream, modelName, aliases = null) {
   const reader = webStream.getReader();
   const decoder = new TextDecoder();
 
@@ -57,6 +84,7 @@ export async function aggregateStreamToResponse(webStream, modelName) {
   let finishReason = "stop";
   let usage = null;
   let buffer = "";
+  const toolCalls = [];
 
   while (true) {
     const { done, value } = await reader.read();
@@ -82,9 +110,34 @@ export async function aggregateStreamToResponse(webStream, modelName) {
           if (choice.delta?.reasoning_content) reasoning += choice.delta.reasoning_content;
           if (choice.delta?.reasoning) reasoning += choice.delta.reasoning;
           if (typeof choice.text === "string") content += choice.text;
+          if (Array.isArray(choice.delta?.tool_calls)) {
+            for (const tc of choice.delta.tool_calls) {
+              const idx = tc.index ?? toolCalls.length;
+              if (!toolCalls[idx]) {
+                toolCalls[idx] = {
+                  id: tc.id || `call_${randomBytes(8).toString("hex")}`,
+                  type: "function",
+                  function: { name: "", arguments: "" },
+                };
+              }
+              if (tc.id) toolCalls[idx].id = tc.id;
+              if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
+              if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
+            }
+          }
         }
         if (parsed.usage) usage = parsed.usage;
       } catch {}
+    }
+  }
+
+  if (aliases && Object.keys(aliases).length > 0) {
+    content = restoreToolAliases(content, aliases);
+    if (reasoning) reasoning = restoreToolAliases(reasoning, aliases);
+    for (const tc of toolCalls) {
+      if (tc?.function?.name) {
+        tc.function.name = restoreToolAliases(tc.function.name, aliases);
+      }
     }
   }
 
@@ -100,8 +153,9 @@ export async function aggregateStreamToResponse(webStream, modelName) {
           role: "assistant",
           content,
           ...(reasoning ? { reasoning_content: reasoning } : {}),
+          ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
         },
-        finish_reason: finishReason,
+        finish_reason: toolCalls.length > 0 && finishReason === "stop" ? "tool_calls" : finishReason,
       },
     ],
     usage: usage || {

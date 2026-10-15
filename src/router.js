@@ -7,7 +7,7 @@ import { sendJsonError } from "./utils/errors.js";
 import { validateLocalAuth, getLocalApiKey } from "./auth/local-auth.js";
 import { getAliveCatalog, findModel } from "./catalog/discovery.js";
 import { KILO_MODEL_IDS } from "./catalog/definitions.js";
-import { transformOpencodeBody, opencodeHeaders } from "./adapters/opencode-zen.js";
+import { transformOpencodeBody, opencodeHeaders, restoreToolAliases } from "./adapters/opencode-zen.js";
 import { kiloHeaders } from "./adapters/kilo.js";
 import { checkRateLimit } from "./proxy/rate-limit.js";
 import {
@@ -345,8 +345,10 @@ export async function handleRequest(req, res) {
         });
         return res.end(data);
       } else {
-        // OpenCode Zen
-        transformOpencodeBody(parsedBody);
+        // OpenCode Zen (v2 gate: /inference/v1)
+        const { responsesPath } = transformOpencodeBody(parsedBody);
+        const aliases = parsedBody.__bansosToolAliases;
+        delete parsedBody.__bansosToolAliases;
 
         const relayStats = getRelayStats();
         if (relayStats.enabled && relayStats.url) {
@@ -360,11 +362,12 @@ export async function handleRequest(req, res) {
           }
         }
 
-        const isResponsesEndpoint = pathname === "/v1/responses" || (parsedBody.input && !parsedBody.messages);
-        const targetPath = isResponsesEndpoint ? "/v1/responses" : "/v1/chat/completions";
-        const fullUrl = `${config.upstreamOpenCode}${targetPath}`;
+        const isResponsesEndpoint = pathname === "/v1/responses" || responsesPath || (parsedBody.input && !parsedBody.messages);
+        const targetPath = isResponsesEndpoint ? "/responses" : "/chat/completions";
+        const baseInference = (config.upstreamOpenCodeInference || "https://opencode.ai/inference/v1").replace(/\/+$/, "");
+        const fullUrl = `${baseInference}${targetPath}`;
 
-        const headers = opencodeHeaders();
+        const headers = opencodeHeaders(false);
         headers["content-type"] = "application/json";
 
         const upstreamResponse = await relayFetch(fullUrl, {
@@ -380,12 +383,12 @@ export async function handleRequest(req, res) {
         }
 
         if (clientWantsStream && upstreamResponse.body) {
-          return pipeUpstreamStream(upstreamResponse.body, res, req, upstreamResponse.status);
+          return pipeUpstreamStream(upstreamResponse.body, res, req, upstreamResponse.status, aliases);
         }
 
         // Upstream OpenCode always streams; aggregate to standard JSON if client asked for non-stream
         if (upstreamResponse.body) {
-          const aggregated = await aggregateStreamToResponse(upstreamResponse.body, requestedModel);
+          const aggregated = await aggregateStreamToResponse(upstreamResponse.body, requestedModel, aliases);
           const bodyJson = JSON.stringify(aggregated);
           res.writeHead(200, {
             "content-type": "application/json",
@@ -395,7 +398,10 @@ export async function handleRequest(req, res) {
           return res.end(bodyJson);
         }
 
-        const data = await upstreamResponse.text();
+        let data = await upstreamResponse.text();
+        if (aliases) {
+          data = restoreToolAliases(data, aliases);
+        }
         res.writeHead(upstreamResponse.status, {
           "content-type": "application/json",
           "access-control-allow-origin": "*",

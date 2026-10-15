@@ -8,7 +8,11 @@ import { config } from "../src/config.js";
 test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
   // 1. Create Mock Upstream Server
   const mockUpstream = http.createServer((req, res) => {
-    if (req.url === "/api/gateway/chat/completions" || req.url?.includes("/zen/v1/chat/completions")) {
+    if (
+      req.url === "/api/gateway/chat/completions" ||
+      req.url?.includes("/inference/v1/chat/completions") ||
+      req.url?.includes("/zen/v1/chat/completions")
+    ) {
       const isStream = req.headers["accept"] === "text/event-stream" || true;
       res.writeHead(200, {
         "content-type": "text/event-stream",
@@ -30,8 +34,10 @@ test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
   // Point config to mock upstream
   const originalKilo = config.kiloChatUrl;
   const originalZen = config.upstreamOpenCode;
+  const originalInference = config.upstreamOpenCodeInference;
   config.kiloChatUrl = "http://127.0.0.1:18995/api/gateway/chat/completions";
-  config.upstreamOpenCode = "http://127.0.0.1:18995/zen";
+  config.upstreamOpenCode = "http://127.0.0.1:18995";
+  config.upstreamOpenCodeInference = "http://127.0.0.1:18995/inference/v1";
 
   // 2. Start Test Server
   const { server, port, host } = await startServer(18991);
@@ -43,6 +49,7 @@ test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
     await new Promise((resolve) => mockUpstream.close(resolve));
     config.kiloChatUrl = originalKilo;
     config.upstreamOpenCode = originalZen;
+    config.upstreamOpenCodeInference = originalInference;
   });
 
   // Test Non-streaming request to Kilo model

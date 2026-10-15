@@ -20,8 +20,8 @@ function extractCatalogIds(data) {
 
 export async function fetchOpenCodeCatalog() {
   try {
-    const res = await fetch(`${config.upstreamOpenCode}/v1/models`, {
-      headers: opencodeHeaders(),
+    const res = await fetch(`${config.upstreamOpenCodeCatalog}/models`, {
+      headers: opencodeHeaders(true),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
