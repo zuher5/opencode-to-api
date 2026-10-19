@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
 import { randomBytes } from "node:crypto";
 import { log } from "../utils/logger.js";
 import { sendJsonError } from "../utils/errors.js";
@@ -46,9 +47,10 @@ export function pipeUpstreamStream(stream, res, req, status = 200, aliases = nul
   });
 
   if (aliases && Object.keys(aliases).length > 0) {
+    const decoder = new StringDecoder("utf8");
     let carry = "";
     nodeStream.on("data", (chunk) => {
-      const text = carry + chunk.toString("utf8");
+      const text = carry + decoder.write(chunk);
       const lines = text.split("\n");
       carry = lines.pop() ?? "";
       const out = lines
@@ -58,11 +60,14 @@ export function pipeUpstreamStream(stream, res, req, status = 200, aliases = nul
             : line
         )
         .join("\n");
+      // Preserve terminators even when the completed line is empty:
+      // blank lines delimit SSE events, including across chunk boundaries.
       if (lines.length > 0 && !res.writableEnded) {
         res.write(out + "\n");
       }
     });
     nodeStream.on("end", () => {
+      carry += decoder.end();
       const tail = carry.replace(/([A-Za-z0-9_-]+)_pi\b/g, (_m, base) => aliases[`${base}_pi`] ?? `${base}_pi`);
       if (tail && !res.writableEnded) {
         res.write(tail);
@@ -128,6 +133,29 @@ export async function aggregateStreamToResponse(webStream, modelName, aliases = 
         }
         if (parsed.usage) usage = parsed.usage;
       } catch {}
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer) {
+    const rawLine = buffer.trim();
+    if (rawLine && rawLine.startsWith("data:")) {
+      const dataStr = rawLine.slice(5).trim();
+      if (dataStr !== "[DONE]") {
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.id) id = parsed.id;
+          const choice = parsed.choices?.[0];
+          if (choice) {
+            if (choice.finish_reason) finishReason = choice.finish_reason;
+            if (choice.delta?.content) content += choice.delta.content;
+            if (choice.delta?.reasoning_content) reasoning += choice.delta.reasoning_content;
+            if (choice.delta?.reasoning) reasoning += choice.delta.reasoning;
+            if (typeof choice.text === "string") content += choice.text;
+          }
+          if (parsed.usage) usage = parsed.usage;
+        } catch {}
+      }
     }
   }
 

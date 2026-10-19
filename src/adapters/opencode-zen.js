@@ -99,7 +99,20 @@ export function generateRequestId(timestamp = Date.now()) {
 
 export const OPENCODE_SESSION = generateSessionId();
 
-let liveOpenCodeVersion = null;
+function loadCachedUA() {
+  try {
+    const versionFile = path.join(config.dataDir, "opencode-version.json");
+    if (fs.existsSync(versionFile)) {
+      const parsed = JSON.parse(fs.readFileSync(versionFile, "utf8"));
+      if (typeof parsed?.version === "string" && OPENCODE_UA_VERSION_RE.test(parsed.version)) {
+        return parsed.version;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+let liveOpenCodeVersion = loadCachedUA();
 
 export function getOpenCodeUA() {
   const override = process.env[config.opencodeUaEnv]?.trim();

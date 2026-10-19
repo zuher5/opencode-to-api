@@ -20,7 +20,7 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
 - **Katalog & Model Cache**: Instant startup dengan pembacaan cache model lokal dan sinkronisasi otomatis di background.
 - **Dual Upstream Handlers**:
-  - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis pada streaming SSE dan non-streaming).
+  - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
 - **Format Streaming & Non-Streaming**: Mendukung format chunk SSE `[DONE]` serta agregasi otomatis stream menjadi respon JSON standar jika klien meminta `stream: false`.
 
@@ -28,7 +28,9 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 
 ## Model yang Didukung
 
-### OpenCode Zen (11 Model)
+**32 Model Terkurasi (16 OpenCode Zen + 16 KiloCode Gateway)**
+
+### OpenCode Zen (16 Model)
 - `muse-spark-1.3-contributor-free` (Responses API, Vision, Reasoning)
 - `muse-spark-1.2-contributor-free` (Responses API, Vision, Reasoning)
 - `step-5-preview-free` (Reasoning)
@@ -40,8 +42,13 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 - `space-bunny-free` (1M Context, Vision, Reasoning)
 - `ling-3.1-flash-free` (Reasoning)
 - `longcat-2.5-preview-free` (1M Context, Reasoning)
+- `deepseek-v4.1-flash-free` (Vision, Reasoning)
+- `glm-5.3-flash-free` (Vision, Reasoning)
+- `cat-jam-free` (1M Context, Reasoning)
+- `ll-alpha-free` (Reasoning)
+- `nemotron-3.5-super-vl-free` (1M Context, Vision, Reasoning)
 
-### KiloCode Gateway (13 Model)
+### KiloCode Gateway (16 Model)
 - `kilo-auto/free`
 - `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning)
 - `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning)
@@ -55,6 +62,9 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 - `liquid/lfm-2.5-2.6b:free` (Reasoning)
 - `poolside/laguna-s-2.1:free` (Reasoning)
 - `thinkingmachines/inkling-small:free` (1M Context, Vision, Reasoning)
+- `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning)
+- `stealth/glyph-cluster` (Reasoning)
+- `stealth/cat-jam` (1M Context, Reasoning)
 
 ---
 
@@ -85,7 +95,7 @@ Server akan mencetak URL dan Local API Key saat startup:
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
   • Local API Key  : sk-local-xxxxxxxxxxxxxxxx
-  • Active Models  : 24 models available
+  • Active Models  : 32 models available
 ```
 
 Buka `http://127.0.0.1:18080/` di browser (Chrome, Firefox, dsb.) untuk mengakses:

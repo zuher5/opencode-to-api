@@ -4,6 +4,7 @@ import {
   transformOpencodeBody,
   opencodeHeaders,
   restoreToolAliases,
+  getOpenCodeUA,
   OPENCODE_EXACT_TOOLS,
   OPENCODE_FINGERPRINT_TOOLS,
 } from "../src/adapters/opencode-zen.js";
@@ -111,4 +112,8 @@ test("OpenCode Zen Headers - Format and Distributed Tracing (Inference vs Catalo
   const catHeaders = opencodeHeaders(true);
   assert.match(catHeaders["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
   assert.equal(catHeaders["x-opencode-session-id"], catHeaders["x-opencode-session"]);
+
+  // User-Agent version check
+  const ua = getOpenCodeUA();
+  assert.match(ua, /^opencode\/\d+\.\d+\.\d+$/);
 });
