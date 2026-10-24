@@ -69,15 +69,46 @@ test("Catalog - v0.7.1 sweep: additions register and route correctly", () => {
   for (const id of ["deepseek-v4.1-flash", "glm-5.3-flash"]) {
     assert.equal(ALL_KNOWN_MODELS.some((m) => m.id === id), false);
   }
+});
 
-  // Swapped cache: only pinned openrouter/free survives
-  const swapped = modelsFromCache({
+test("Catalog - curated list is authoritative, not the live catalog", () => {
+  // Real observed gap: these curated, chat-verified ids are absent from the
+  // live /zen/v1/models response (and Kilo drifts to a `:free`-less id).
+  const absentFromLiveCatalog = [
+    "nemotron-3-ultra-free",
+    "longcat-2.5-preview-free",
+    "cat-jam-free",
+    "minimax-m3.1-flash-free",
+    "minimax/minimax-m3.1-flash:free",
+    "thinkingmachines/inkling-small:free",
+  ];
+
+  // A cache that lists none of them must not hide them.
+  const liveCache = { fetchedAt: 1, opencode: ["beam-free"], kilo: ["kilo-auto/free"] };
+  const models = modelsFromCache(liveCache);
+  assert.equal(models.length, 25);
+  for (const id of absentFromLiveCatalog) {
+    assert.ok(
+      models.some((m) => m.id === id),
+      `${id} must stay routable even though the live catalog omits it`,
+    );
+  }
+
+  // Online and offline starts must expose the same catalog.
+  const offline = modelsFromCache({ fetchedAt: 0 });
+  assert.deepEqual(
+    models.map((m) => m.id),
+    offline.map((m) => m.id),
+    "online and offline catalog must match",
+  );
+
+  // A cache listing unknown/foreign ids adds nothing.
+  const foreign = modelsFromCache({
     fetchedAt: 1,
-    opencode: newKilo,
-    kilo: newOpencode,
+    opencode: ["not-a-real-model"],
+    kilo: ["also/fake:free"],
   });
-  assert.equal(swapped.length, 1);
-  assert.equal(swapped[0].id, "openrouter/free");
+  assert.equal(foreign.length, 25);
 });
 
 test("Catalog - v0.7.1 sweep: dead upstream models are dropped", () => {

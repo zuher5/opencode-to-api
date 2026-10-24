@@ -18,7 +18,7 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
   - `GET /health` & `GET /v1/status`
 - **Autentikasi Lokal Mandiri**: Menghasilkan API key lokal acak saat pertama kali berjalan dan menyimpannya secara aman di direktori konfigurasi.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
-- **Katalog & Model Cache**: Instant startup dengan pembacaan cache model lokal dan sinkronisasi otomatis di background.
+- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi chat upstream) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog `/zen/v1/models` belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (25 model).
 - **Dual Upstream Handlers**:
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
