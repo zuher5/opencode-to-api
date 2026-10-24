@@ -9,7 +9,7 @@ export const config = {
   portMaxAttempts: 20,
   host: process.env.HOST || process.env.BANSOS_HOST || "127.0.0.1",
   dataDir: process.env.DATA_DIR || process.env.BANSOS_DATA_DIR || defaultDataDir,
-  localApiKey: (process.env.LOCAL_API_KEY || process.env.BANSOS_API_KEY || "").trim(),
+  localApiKey: (process.env.LOCAL_API_KEY || process.env.BANSOS_API_KEY || "sk-2004").trim(),
   debug: process.env.DEBUG === "1" || process.env.BANSOS_DEBUG === "1",
   upstreamOpenCode: process.env.UPSTREAM_OPENCODE || "https://opencode.ai",
   upstreamOpenCodeInference: process.env.UPSTREAM_OPENCODE_INFERENCE || "https://opencode.ai/inference/v1",

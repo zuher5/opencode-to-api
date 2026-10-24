@@ -16,7 +16,7 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
   - `POST /v1/chat/completions` (mendukung streaming SSE dan non-streaming!)
   - `POST /v1/responses`
   - `GET /health` & `GET /v1/status`
-- **Autentikasi Lokal Mandiri**: Menghasilkan API key lokal acak saat pertama kali berjalan dan menyimpannya secara aman di direktori konfigurasi.
+- **Autentikasi Lokal**: API key default `sk-2004` (bisa ditimpa lewat `LOCAL_API_KEY` / `BANSOS_API_KEY`). Bisa dikirim via `Authorization: Bearer`, header `x-api-key`, atau query `?api_key=`.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
 - **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi chat upstream) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog `/zen/v1/models` belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (25 model).
 - **Dual Upstream Handlers**:
@@ -95,7 +95,7 @@ Server akan mencetak URL dan Local API Key saat startup:
   • Web Dashboard  : http://127.0.0.1:18080/
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
-  • Local API Key  : sk-local-xxxxxxxxxxxxxxxx
+  • Local API Key  : sk-2004
   • Active Models  : 25 models available
 ```
 
@@ -121,7 +121,7 @@ npm start
 ```bash
 # Chat Completions (Streaming)
 curl http://127.0.0.1:18080/v1/chat/completions \
-  -H "Authorization: Bearer <LOCAL_API_KEY>" \
+  -H "Authorization: Bearer sk-2004" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "kilo-auto/free",
@@ -131,7 +131,7 @@ curl http://127.0.0.1:18080/v1/chat/completions \
 
 # Non-Streaming
 curl http://127.0.0.1:18080/v1/chat/completions \
-  -H "Authorization: Bearer <LOCAL_API_KEY>" \
+  -H "Authorization: Bearer sk-2004" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nemotron-3-ultra-free",
@@ -147,7 +147,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:18080/v1",
-    api_key="<LOCAL_API_KEY>"  # Gunakan key yang tampil di startup
+    api_key="sk-2004"  # Default; override dengan env LOCAL_API_KEY
 )
 
 response = client.chat.completions.create(

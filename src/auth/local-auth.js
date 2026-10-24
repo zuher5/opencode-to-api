@@ -7,6 +7,9 @@ import { log } from "../utils/logger.js";
 let activeLocalApiKey = "";
 
 export function initLocalAuth() {
+  // A configured key (config.localApiKey, default "sk-2004") always wins.
+  // The persisted-file and random-generation paths below are the fallback for
+  // when that config is explicitly empty.
   if (config.localApiKey) {
     activeLocalApiKey = config.localApiKey;
     return activeLocalApiKey;
