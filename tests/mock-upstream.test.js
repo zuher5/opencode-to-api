@@ -4,6 +4,7 @@ import http from "node:http";
 import { startServer, stopServer } from "../src/server.js";
 import { getLocalApiKey } from "../src/auth/local-auth.js";
 import { config } from "../src/config.js";
+import { setRelayEnabled, getRelayStats } from "../src/proxy/relay.js";
 
 test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
   // 1. Create Mock Upstream Server
@@ -39,6 +40,12 @@ test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
   config.upstreamOpenCode = "http://127.0.0.1:18995";
   config.upstreamOpenCodeInference = "http://127.0.0.1:18995/inference/v1";
 
+  // Hermetic: never route through a persisted relay, and use a model that is
+  // both curated and present in the live upstream catalog so the discovery
+  // cache cannot filter it out.
+  const relayWasEnabled = getRelayStats().enabled;
+  setRelayEnabled(false);
+
   // 2. Start Test Server
   const { server, port, host } = await startServer(18991);
   const baseUrl = `http://${host}:${port}`;
@@ -50,6 +57,7 @@ test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
     config.kiloChatUrl = originalKilo;
     config.upstreamOpenCode = originalZen;
     config.upstreamOpenCodeInference = originalInference;
+    setRelayEnabled(relayWasEnabled);
   });
 
   // Test Non-streaming request to Kilo model
@@ -80,7 +88,7 @@ test("Mock Upstream - Chat completions end-to-end tests", async (t) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "nemotron-3-ultra-free",
+      model: "big-pickle",
       messages: [{ role: "user", content: "Test stream" }],
       stream: true,
     }),

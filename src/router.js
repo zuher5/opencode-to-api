@@ -11,6 +11,11 @@ import { transformOpencodeBody, opencodeHeaders, restoreToolAliases } from "./ad
 import { kiloHeaders } from "./adapters/kilo.js";
 import { checkRateLimit } from "./proxy/rate-limit.js";
 import {
+  upstreamHealth,
+  recordUpstreamFailure,
+  describeCooldown,
+} from "./proxy/upstream-health.js";
+import {
   relayFetch,
   getRelayStats,
   getRelayDetails,
@@ -97,6 +102,7 @@ export async function handleRequest(req, res) {
         active: stats.url || "direct",
         hits: stats.hits,
       },
+      cooldowns: upstreamHealth.snapshot(),
     });
     res.writeHead(200, {
       "content-type": "application/json",
@@ -130,6 +136,7 @@ export async function handleRequest(req, res) {
       apiKey: getLocalApiKey(),
       modelsCount: alive.length,
       relay: stats,
+      cooldowns: upstreamHealth.snapshot(),
     });
     res.writeHead(200, {
       "content-type": "application/json",
@@ -303,6 +310,31 @@ export async function handleRequest(req, res) {
       return sendJsonError(res, 429, `${upstream} rate limit exceeded. Try again in ${resetSec}s`, "rate_limit_error", "rate_limit_exceeded");
     }
 
+    // Reactive upstream cooldown gate (v0.7.1 triage). Fail fast locally
+    // instead of replaying a refusal the upstream already told us about.
+    upstreamHealth.prune();
+    const activeCooldown = upstreamHealth.cooldown(upstream, requestedModel);
+    if (activeCooldown) {
+      const retrySec = Math.max(1, Math.ceil((activeCooldown.until - Date.now()) / 1000));
+      const reason = describeCooldown(activeCooldown);
+      log("warn", "Upstream cooldown active, failing fast", {
+        upstream,
+        model: requestedModel,
+        kind: activeCooldown.kind,
+        retrySec,
+      });
+      res.setHeader("Retry-After", String(retrySec));
+      return sendJsonError(
+        res,
+        activeCooldown.kind === "ip-flagged" ? 503 : 429,
+        reason,
+        "rate_limit_error",
+        activeCooldown.kind === "ip-flagged" ? "egress_ip_flagged" : "quota_exhausted",
+      );
+    }
+
+    const relayActive = getRelayStats().enabled;
+
     const clientWantsStream = parsedBody.stream === true;
 
     try {
@@ -318,8 +350,27 @@ export async function handleRequest(req, res) {
 
         if (!upstreamResponse.ok) {
           const errText = await upstreamResponse.text().catch(() => "Unknown upstream error");
+          const triage = recordUpstreamFailure({
+            upstream,
+            model: requestedModel,
+            status: upstreamResponse.status,
+            body: errText,
+            retryAfter: upstreamResponse.headers.get("retry-after"),
+            relayActive,
+          });
+          if (triage.cooldownMs > 0) {
+            log("warn", "Upstream triaged, cooling down", {
+              upstream,
+              model: requestedModel,
+              kind: triage.kind,
+              cooldownMs: triage.cooldownMs,
+            });
+            res.setHeader("Retry-After", String(Math.ceil(triage.cooldownMs / 1000)));
+          }
           return sendJsonError(res, upstreamResponse.status, `Kilo upstream error: ${errText}`, "api_error");
         }
+
+        upstreamHealth.recordSuccess(upstream, requestedModel);
 
         if (clientWantsStream && upstreamResponse.body) {
           return pipeUpstreamStream(upstreamResponse.body, res, req, upstreamResponse.status);
@@ -379,8 +430,27 @@ export async function handleRequest(req, res) {
 
         if (!upstreamResponse.ok) {
           const errText = await upstreamResponse.text().catch(() => "Unknown upstream error");
+          const triage = recordUpstreamFailure({
+            upstream,
+            model: requestedModel,
+            status: upstreamResponse.status,
+            body: errText,
+            retryAfter: upstreamResponse.headers.get("retry-after"),
+            relayActive,
+          });
+          if (triage.cooldownMs > 0) {
+            log("warn", "Upstream triaged, cooling down", {
+              upstream,
+              model: requestedModel,
+              kind: triage.kind,
+              cooldownMs: triage.cooldownMs,
+            });
+            res.setHeader("Retry-After", String(Math.ceil(triage.cooldownMs / 1000)));
+          }
           return sendJsonError(res, upstreamResponse.status, `OpenCode upstream error: ${errText}`, "api_error");
         }
+
+        upstreamHealth.recordSuccess(upstream, requestedModel);
 
         if (clientWantsStream && upstreamResponse.body) {
           return pipeUpstreamStream(upstreamResponse.body, res, req, upstreamResponse.status, aliases);

@@ -23,48 +23,49 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
 - **Format Streaming & Non-Streaming**: Mendukung format chunk SSE `[DONE]` serta agregasi otomatis stream menjadi respon JSON standar jika klien meminta `stream: false`.
+- **Triage Upstream 429/403 + Cooldown Reaktif**: Kegagalan upstream diklasifikasikan dari body, bukan diteruskan mentah-mentah.
+  - `429 FreeUsageLimitError` / `Rate limit exceeded` → cooldown **per-model** (90 s, ×2 eskalasi, cap 15 menit; `Retry-After` server dihormati hingga 1 jam).
+  - `403 "abusive traffic from this IP address"` → cooldown **seluruh egress upstream** (5 menit, eskalasi) dengan hint untuk memakai/mengganti relay.
+  - `403 FreeTierError` varian *shape gate* → diteruskan apa adanya tanpa cooldown (penolakan deterministik; kalau ini muncul berarti gate upstream berubah).
+  - Request saat cooldown **fail-fast** (`429`/`503` + header `Retry-After`) tanpa menyentuh upstream, sehingga IP tidak makin dalam kena risk control.
+  - Cooldown hanya dicatat dari jawaban egress langsung; saat relay aktif, failover relay yang menangani. Respon `2xx` mereset cooldown model dan flag egress.
 
 ---
 
 ## Model yang Didukung
 
-**32 Model Terkurasi (16 OpenCode Zen + 16 KiloCode Gateway)**
+**25 Model Terkurasi (11 OpenCode Zen + 14 KiloCode Gateway)** — sinkron dengan pi-bansos v0.7.1
 
-### OpenCode Zen (16 Model)
-- `muse-spark-1.3-contributor-free` (Responses API, Vision, Reasoning)
-- `muse-spark-1.2-contributor-free` (Responses API, Vision, Reasoning)
-- `step-5-preview-free` (Reasoning)
+> Sweep 2026-10-20: model yang sudah mati di upstream dihapus (OpenCode 410/400: muse-spark 1.3/1.2, space-bunny, ll-alpha, step-5-preview, ling-3.0/3.1; Kilo 401/429/504: stealth/cat-jam, stealth/glyph-cluster, poolside/laguna-xs, liquid/lfm-2.5).
+
+### OpenCode Zen (11 Model)
+- `beam-free` (Baru)
+- `minimax-m3.1-flash-free` (1M Context, Vision, Reasoning — Baru)
 - `mimo-v2.6-flash-free` (Vision, Reasoning)
-- `ling-3.0-flash-fin-free` (Reasoning)
 - `nemotron-3-ultra-free` (1M Context, Reasoning)
 - `nemotron-3.5-lightning-free` (Reasoning)
 - `big-pickle` (Reasoning)
-- `space-bunny-free` (1M Context, Vision, Reasoning)
-- `ling-3.1-flash-free` (Reasoning)
 - `longcat-2.5-preview-free` (1M Context, Reasoning)
 - `deepseek-v4.1-flash-free` (Vision, Reasoning)
 - `glm-5.3-flash-free` (Vision, Reasoning)
 - `cat-jam-free` (1M Context, Reasoning)
-- `ll-alpha-free` (Reasoning)
 - `nemotron-3.5-super-vl-free` (1M Context, Vision, Reasoning)
 
-### KiloCode Gateway (16 Model)
+### KiloCode Gateway (14 Model)
 - `kilo-auto/free`
+- `minimax/minimax-m3.1-flash:free` (1M Context, Vision, Reasoning — Baru)
+- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning — Baru)
 - `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning)
 - `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning)
 - `dots-studio/dots-3-note-preview:free` (Vision, Reasoning)
 - `cohere/north-mini-code:free`
-- `poolside/laguna-xs-2.1:free` (Reasoning)
 - `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (Vision, Reasoning)
 - `openrouter/free` (Pinned, Vision)
 - `nvidia/nemotron-3.5-lightning:free` (1M Context, Reasoning)
 - `nvidia/nemotron-3.5-content-safety:free` (Vision, Reasoning)
-- `liquid/lfm-2.5-2.6b:free` (Reasoning)
 - `poolside/laguna-s-2.1:free` (Reasoning)
 - `thinkingmachines/inkling-small:free` (1M Context, Vision, Reasoning)
 - `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning)
-- `stealth/glyph-cluster` (Reasoning)
-- `stealth/cat-jam` (1M Context, Reasoning)
 
 ---
 
@@ -95,7 +96,7 @@ Server akan mencetak URL dan Local API Key saat startup:
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
   • Local API Key  : sk-local-xxxxxxxxxxxxxxxx
-  • Active Models  : 32 models available
+  • Active Models  : 25 models available
 ```
 
 Buka `http://127.0.0.1:18080/` di browser (Chrome, Firefox, dsb.) untuk mengakses:
@@ -171,4 +172,4 @@ npm test
 ## Lisensi & Atribusi
 
 Proyek ini dilisensikan di bawah **MIT License**.
-Implementasi logika upstream, parameter gate OpenCode Zen, dan katalog free model bersumber dari [`pi-bansos`](https://github.com/mannnrachman/pi-bansos) oleh mannrachman.
+Implementasi logika upstream, parameter gate OpenCode Zen, dan katalog free model bersumber dari [`pi-bansos`](https://github.com/mannnrachman/pi-bansos) oleh mannrachman (disinkronkan hingga **v0.7.1**: model sweep 2026-10-20 + triage 429/403 dengan cooldown reaktif).

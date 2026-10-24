@@ -637,6 +637,11 @@
         <div id="relay-list">
           <div style="color:var(--secondary); font-size:0.825rem;">Loading relay pool...</div>
         </div>
+
+        <label style="margin-top:18px;">Active Upstream Cooldowns</label>
+        <div id="cooldown-list">
+          <div style="color:var(--secondary); font-size:0.825rem;">None — upstream is answering normally.</div>
+        </div>
       </div>
 
       <!-- Add New Relay -->
@@ -774,28 +779,83 @@
         const container = document.getElementById('relay-list');
         if (!data.relays || data.relays.length === 0) {
           container.innerHTML = '<div style="color:var(--secondary); font-size:0.825rem; padding:8px 0;">No saved relays yet. Add one in the panel on the right.</div>';
-          return;
+        } else {
+          container.innerHTML = '';
+          data.relays.forEach(r => {
+            const isActive = r.url === data.url;
+            const item = document.createElement('div');
+            item.className = 'relay-item';
+            item.innerHTML = `
+              <div style="flex:1;">
+                <div class="relay-url">${isActive ? '★ ' : ''}${r.url}</div>
+                <div class="relay-label">${r.label || 'Relay'} · ${r.healthy ? 'Healthy' : 'Cooling down'}</div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                ${!isActive ? `<button class="btn btn-secondary btn-sm" onclick="setActiveRelay('${r.url}')">Use</button>` : '<span style="font-size:0.75rem; color:#059669; font-weight:600; padding:6px;">Active</span>'}
+                <button class="btn btn-danger btn-sm" onclick="removeRelay('${r.url}')">Delete</button>
+              </div>
+            `;
+            container.appendChild(item);
+          });
         }
 
-        container.innerHTML = '';
-        data.relays.forEach(r => {
-          const isActive = r.url === data.url;
-          const item = document.createElement('div');
-          item.className = 'relay-item';
-          item.innerHTML = `
-            <div style="flex:1;">
-              <div class="relay-url">${isActive ? '★ ' : ''}${r.url}</div>
-              <div class="relay-label">${r.label || 'Relay'} · ${r.healthy ? 'Healthy' : 'Cooling down'}</div>
-            </div>
-            <div style="display:flex; gap:8px;">
-              ${!isActive ? `<button class="btn btn-secondary btn-sm" onclick="setActiveRelay('${r.url}')">Use</button>` : '<span style="font-size:0.75rem; color:#059669; font-weight:600; padding:6px;">Active</span>'}
-              <button class="btn btn-danger btn-sm" onclick="removeRelay('${r.url}')">Delete</button>
-            </div>
-          `;
-          container.appendChild(item);
-        });
+        renderCooldowns().catch(() => {});
       } catch (e) {
         console.error("Failed querying relay pool", e);
+      }
+    }
+
+    // Active upstream 429/403 cooldowns (v0.7.1 reactive triage).
+    async function renderCooldowns() {
+      const box = document.getElementById('cooldown-list');
+      if (!box) return;
+      let cd = null;
+      try {
+        const info = await (await fetch('/api/info')).json();
+        cd = info.cooldowns;
+      } catch {
+        return;
+      }
+
+      const now = Date.now();
+      const items = [];
+
+      for (const e of cd?.egress || []) {
+        if (!e.active) continue;
+        const secs = Math.max(1, Math.ceil((e.until - now) / 1000));
+        items.push({
+          title: `${e.upstream} egress IP flagged`,
+          detail: `Abusive-traffic block — switch or add a relay. Retry in ${secs}s.`,
+          critical: true,
+        });
+      }
+
+      for (const m of cd?.models || []) {
+        if (!m.active) continue;
+        const secs = Math.max(1, Math.ceil((m.until - now) / 1000));
+        items.push({
+          title: `${m.model}`,
+          detail: `${m.upstream} quota exhausted · ${m.failures}x · retry in ${secs}s`,
+          critical: false,
+        });
+      }
+
+      if (items.length === 0) {
+        box.innerHTML = '<div style="color:var(--secondary); font-size:0.825rem;">None — upstream is answering normally.</div>';
+        return;
+      }
+
+      box.innerHTML = '';
+      for (const it of items) {
+        const div = document.createElement('div');
+        div.className = 'relay-item';
+        div.innerHTML = `
+          <div style="flex:1;">
+            <div class="relay-url" style="color:${it.critical ? '#dc2626' : 'var(--primary)'};">${it.title}</div>
+            <div class="relay-label">${it.detail}</div>
+          </div>
+        `;
+        box.appendChild(div);
       }
     }
 

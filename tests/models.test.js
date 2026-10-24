@@ -6,13 +6,15 @@ import {
   KILO_MODELS,
   ALL_KNOWN_MODELS,
   KILO_MODEL_IDS,
+  OPENCODE_MODEL_IDS,
+  OPENCODE_RESPONSES_MODELS,
 } from "../src/catalog/definitions.js";
 
 test("Catalog - Models definition and discovery", () => {
   const catalog = getAliveCatalog();
-  assert.equal(catalog.length, 32, "Should have exactly 32 curated models");
-  assert.equal(OPENCODE_MODELS.length, 16, "Should have 16 OpenCode models");
-  assert.equal(KILO_MODELS.length, 16, "Should have 16 Kilo models");
+  assert.equal(catalog.length, 25, "Should have exactly 25 curated models (v0.7.1 sweep)");
+  assert.equal(OPENCODE_MODELS.length, 11, "Should have 11 OpenCode models");
+  assert.equal(KILO_MODELS.length, 14, "Should have 14 Kilo models");
 
   // Check an OpenCode model
   const nemotron = findModel("nemotron-3-ultra-free");
@@ -28,20 +30,19 @@ test("Catalog - Models definition and discovery", () => {
   // Check nonexistent model
   const missing = findModel("non-existent-model");
   assert.equal(missing, null);
+
+  // No duplicate ids across providers
+  const ids = ALL_KNOWN_MODELS.map((m) => m.id);
+  assert.equal(new Set(ids).size, ids.length, "Model ids must be unique");
+  assert.equal(OPENCODE_MODEL_IDS.size, OPENCODE_MODELS.length);
+  assert.equal(KILO_MODEL_IDS.size, KILO_MODELS.length);
 });
 
-test("Catalog - 8 New free models register and route correctly (v0.6.4)", () => {
-  const newOpencode = [
-    "deepseek-v4.1-flash-free",
-    "glm-5.3-flash-free",
-    "cat-jam-free",
-    "ll-alpha-free",
-    "nemotron-3.5-super-vl-free",
-  ];
+test("Catalog - v0.7.1 sweep: additions register and route correctly", () => {
+  const newOpencode = ["beam-free", "minimax-m3.1-flash-free"];
   const newKilo = [
-    "nvidia/nemotron-3.5-super-vl:free",
-    "stealth/glyph-cluster",
-    "stealth/cat-jam",
+    "minimax/minimax-m3.1-flash:free",
+    "xingchen-agi/xing4.0-29b-a4b:free",
   ];
 
   const models = modelsFromCache({
@@ -64,11 +65,6 @@ test("Catalog - 8 New free models register and route correctly (v0.6.4)", () => 
     assert.equal(KILO_MODEL_IDS.has(id), true);
   }
 
-  // Muse retains Responses API
-  for (const model of OPENCODE_MODELS.filter((m) => m.id.startsWith("muse-spark"))) {
-    assert.equal(model.api, "openai-responses");
-  }
-
   // Paid IDs stay excluded
   for (const id of ["deepseek-v4.1-flash", "glm-5.3-flash"]) {
     assert.equal(ALL_KNOWN_MODELS.some((m) => m.id === id), false);
@@ -84,8 +80,39 @@ test("Catalog - 8 New free models register and route correctly (v0.6.4)", () => 
   assert.equal(swapped[0].id, "openrouter/free");
 });
 
+test("Catalog - v0.7.1 sweep: dead upstream models are dropped", () => {
+  // OpenCode: 410/400 upstream (see pi-bansos v0.7.0 sweep notes)
+  const droppedOpencode = [
+    "muse-spark-1.3-contributor-free",
+    "muse-spark-1.2-contributor-free",
+    "space-bunny-free",
+    "ll-alpha-free",
+    "step-5-preview-free",
+    "ling-3.0-flash-fin-free",
+    "ling-3.1-flash-free",
+  ];
+  // Kilo: 401 paid-model, 429 shared pool, 504 upstream
+  const droppedKilo = [
+    "stealth/cat-jam",
+    "stealth/glyph-cluster",
+    "poolside/laguna-xs-2.1:free",
+    "liquid/lfm-2.5-2.6b:free",
+  ];
+
+  for (const id of [...droppedOpencode, ...droppedKilo]) {
+    assert.equal(
+      ALL_KNOWN_MODELS.some((m) => m.id === id),
+      false,
+      `Dropped model ${id} must not be registered`,
+    );
+  }
+
+  // muse-spark class is gone, so nothing is pinned to the Responses endpoint
+  assert.equal(OPENCODE_RESPONSES_MODELS.size, 0);
+});
+
 test("Catalog - Fallback when cache is empty", () => {
   const emptyCache = { fetchedAt: 0, opencode: [], kilo: [] };
   const models = modelsFromCache(emptyCache);
-  assert.equal(models.length, 32, "Fallback should provide all 32 known models");
+  assert.equal(models.length, 25, "Fallback should provide all 25 known models");
 });
