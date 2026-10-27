@@ -1,7 +1,7 @@
 {
   "name": "opencode-to-api",
   "version": "1.4.0",
-  "description": "Standalone OpenAI-compatible API server powered by OpenCode Zen and KiloCode Gateway (synced with pi-bansos v0.7.2)",
+  "description": "Standalone OpenAI-compatible API server powered by OpenCode Zen and KiloCode Gateway",
   "type": "module",
   "main": "src/index.js",
   "bin": {

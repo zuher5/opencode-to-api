@@ -1,8 +1,6 @@
 # OpenCode-to-API Standalone
 
-Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**OpenAI-compatible**), menyediakan akses ke model gratis dari **OpenCode Zen** dan **KiloCode Gateway**. Dirancang agar dapat berjalan langsung di **Termux Android** dan **Windows PowerShell** tanpa memerlukan runtime Pi, OpenCode CLI, atau ekstensi pihak ketiga.
-
-Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/pi-bansos`](https://github.com/mannnrachman/pi-bansos).
+Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**OpenAI-compatible**), menyediakan akses ke model gratis dari **OpenCode Zen** dan **KiloCode Gateway**. Dirancang agar dapat berjalan langsung di **Termux Android** dan **Windows PowerShell** tanpa memerlukan CLI pihak ketiga atau dependensi eksternal yang rumit.
 
 ---
 
@@ -16,9 +14,9 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
   - `POST /v1/chat/completions` (mendukung streaming SSE dan non-streaming!)
   - `POST /v1/responses`
   - `GET /health` & `GET /v1/status`
-- **Autentikasi Lokal**: API key default `sk-2004` (bisa ditimpa lewat `LOCAL_API_KEY` / `BANSOS_API_KEY`). Bisa dikirim via `Authorization: Bearer`, header `x-api-key`, atau query `?api_key=`.
+- **Autentikasi Lokal**: API key default `sk-2004` (dapat dikonfigurasi lewat environment variable `LOCAL_API_KEY`). Mendukung autentikasi melalui header `Authorization: Bearer <key>`, header `x-api-key: <key>`, atau query string `?api_key=<key>`.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
-- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi chat upstream) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog `/zen/v1/models` belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (25 model).
+- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog upstream belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (21 model).
 - **Dual Upstream Handlers**:
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, CLI `<env>` environment fingerprint injection pada system prompt untuk mencegah fake 429 `FreeUsageLimitError`, re-mint session ID mingguan agar session tidak kadaluarsa >30 hari, serta incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
@@ -34,11 +32,11 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 
 ## Model yang Didukung
 
-**21 Model Terkurasi (8 OpenCode Zen + 13 KiloCode Gateway)** — sinkron dengan pi-bansos v0.7.2
+**21 Model Terkurasi (8 OpenCode Zen + 13 KiloCode Gateway)**
 
-> Sweep 2026-10-26: model yang dihapus dari katalog/404 di upstream dibersihkan.
-> - OpenCode Zen: hapus `minimax-m3.1-flash-free`, `nemotron-3-ultra-free`, `longcat-2.5-preview-free`, `cat-jam-free`. Tambah `flint-40b-free`. Context window `deepseek-v4.1-flash-free` dinaikkan ke 320K (max token 64K).
-> - KiloCode: hapus `minimax/minimax-m3.1-flash:free` dan `thinkingmachines/inkling-small:free` (404). Tambah `recursive/flint-v1.0:free` (chat 200).
+> Pembaruan Katalog Terverifikasi:
+> - **OpenCode Zen**: Menghadirkan `flint-40b-free` (200K Context), peningkatan batas context `deepseek-v4.1-flash-free` menjadi **320K** (max token 64K), serta pembersihan model yang sudah deprecated/tidak aktif.
+> - **KiloCode Gateway**: Menghadirkan `recursive/flint-v1.0:free` (262K Context), serta pembersihan model yang sudah 404/tidak tersedia.
 
 ### OpenCode Zen (8 Model)
 - `beam-free`
@@ -167,7 +165,6 @@ npm test
 
 ---
 
-## Lisensi & Atribusi
+## Lisensi
 
-Proyek ini dilisensikan di bawah **MIT License**.
-Implementasi logika upstream, parameter gate OpenCode Zen, dan katalog free model bersumber dari [`pi-bansos`](https://github.com/mannnrachman/pi-bansos) oleh mannrachman (disinkronkan hingga **v0.7.1**: model sweep 2026-10-20 + triage 429/403 dengan cooldown reaktif).
+Proyek ini dirilis dan dilisensikan di bawah **MIT License**. Bebas digunakan, dimodifikasi, dan didistribusikan untuk keperluan pribadi maupun pengembangan lebih lanjut.
