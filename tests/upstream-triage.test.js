@@ -58,14 +58,14 @@ test("Upstream triage - cooldown fails fast without hitting upstream", async (t)
     });
 
   // 1. First quota 429 reaches the upstream and records a cooldown.
-  const first = await post("nemotron-3-ultra-free");
+  const first = await post("beam-free");
   assert.equal(first.status, 429);
   assert.equal(upstreamHits, 1);
   assert.ok(Number(first.headers.get("retry-after")) > 0);
-  assert.equal(upstreamHealth.cooldown("opencode", "nemotron-3-ultra-free")?.kind, "quota");
+  assert.equal(upstreamHealth.cooldown("opencode", "beam-free")?.kind, "quota");
 
   // 2. Second identical request fails fast: no new upstream hit.
-  const second = await post("nemotron-3-ultra-free");
+  const second = await post("beam-free");
   assert.equal(second.status, 429);
   assert.equal(upstreamHits, 1, "cooldown must not replay the refusal upstream");
   const secondBody = await second.json();
@@ -84,7 +84,7 @@ test("Upstream triage - cooldown fails fast without hitting upstream", async (t)
   assert.equal(flagged.status, 403);
   assert.equal(upstreamHits, 3);
 
-  const afterFlag = await post("nemotron-3-ultra-free");
+  const afterFlag = await post("beam-free");
   assert.equal(afterFlag.status, 503);
   assert.equal(upstreamHits, 3, "egress cooldown must cover every model");
   const flagBody = await afterFlag.json();

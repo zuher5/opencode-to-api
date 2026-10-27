@@ -1,16 +1,16 @@
 /**
- * Curated model definitions ported from pi-bansos (v0.7.1).
+ * Curated model definitions ported from pi-bansos (v0.7.2).
  *
- * Model sweep 2026-10-20 (upstream v0.7.0):
- * - OpenCode Zen dropped: muse-spark-1.3/1.2, space-bunny (410 "use
- *   minimax-m3.1-flash-free instead"), ll-alpha (410), step-5-preview and
- *   ling-3.0/3.1 (400 "Model is unavailable").
- *   Added: beam-free, minimax-m3.1-flash-free.
- * - KiloCode Gateway dropped: stealth/cat-jam + stealth/glyph-cluster (401
- *   PAID_MODEL_AUTH_REQUIRED — stealth lane went sign-in), poolside/laguna-xs
- *   (429 consistently), liquid/lfm-2.5 (504 consistently).
- *   Added: minimax/minimax-m3.1-flash:free, xingchen-agi/xing4.0-29b-a4b:free.
- * Catalog total: 32 -> 25 (11 OpenCode + 14 Kilo).
+ * Model sweep 2026-10-26 (upstream v0.7.2):
+ * - OpenCode Zen:
+ *   Dropped (absent from /zen/v1/models catalog): minimax-m3.1-flash-free,
+ *   nemotron-3-ultra-free, longcat-2.5-preview-free, cat-jam-free.
+ *   Added: flint-40b-free (catalog-listed).
+ *   Updated: deepseek-v4.1-flash-free contextWindow 200K -> 320K, maxTokens 32K -> 64K.
+ * - KiloCode Gateway:
+ *   Dropped (404 upstream): minimax/minimax-m3.1-flash:free, thinkingmachines/inkling-small:free.
+ *   Added: recursive/flint-v1.0:free (chat 200).
+ * Catalog total: 25 -> 21 (8 OpenCode + 13 Kilo).
  */
 
 export const OPENCODE_MODELS = [
@@ -25,16 +25,6 @@ export const OPENCODE_MODELS = [
     source: "opencode",
   },
   {
-    id: "minimax-m3.1-flash-free",
-    name: "MiniMax M3.1 Flash Free",
-    reasoning: true,
-    contextWindow: 1_000_000,
-    maxTokens: 524_288,
-    api: "openai-completions",
-    input: ["text", "image"],
-    source: "opencode",
-  },
-  {
     id: "mimo-v2.6-flash-free",
     name: "MiMo V2.6 Flash Free",
     reasoning: true,
@@ -42,16 +32,6 @@ export const OPENCODE_MODELS = [
     maxTokens: 32_000,
     api: "openai-completions",
     input: ["text", "image"],
-    source: "opencode",
-  },
-  {
-    id: "nemotron-3-ultra-free",
-    name: "Nemotron 3 Ultra Free",
-    reasoning: true,
-    contextWindow: 1_000_000,
-    maxTokens: 128_000,
-    api: "openai-completions",
-    input: ["text"],
     source: "opencode",
   },
   {
@@ -75,23 +55,23 @@ export const OPENCODE_MODELS = [
     source: "opencode",
   },
   {
-    id: "longcat-2.5-preview-free",
-    name: "LongCat 2.5 Preview",
-    reasoning: true,
-    contextWindow: 1_000_000,
-    maxTokens: 131_072,
-    api: "openai-completions",
-    input: ["text"],
-    source: "opencode",
-  },
-  {
     id: "deepseek-v4.1-flash-free",
     name: "DeepSeek V4.1 Flash Free",
     reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 32_000,
+    contextWindow: 320_000,
+    maxTokens: 64_000,
     api: "openai-completions",
     input: ["text", "image"],
+    source: "opencode",
+  },
+  {
+    id: "flint-40b-free",
+    name: "Flint 40B Free",
+    reasoning: true,
+    contextWindow: 200_000,
+    maxTokens: 32_768,
+    api: "openai-completions",
+    input: ["text"],
     source: "opencode",
   },
   {
@@ -102,16 +82,6 @@ export const OPENCODE_MODELS = [
     maxTokens: 32_000,
     api: "openai-completions",
     input: ["text", "image"],
-    source: "opencode",
-  },
-  {
-    id: "cat-jam-free",
-    name: "Cat Jam Free",
-    reasoning: true,
-    contextWindow: 1_048_576,
-    maxTokens: 131_072,
-    api: "openai-completions",
-    input: ["text"],
     source: "opencode",
   },
   {
@@ -127,12 +97,8 @@ export const OPENCODE_MODELS = [
 ];
 
 // KiloCode gateway free models (keyless — https://kilo.ai/docs/gateway).
-// Sweep 2026-10-20: stealth/cat-jam and stealth/glyph-cluster now answer 401
-// PAID_MODEL_AUTH_REQUIRED (stealth lane went sign-in). poolside/laguna-xs
-// 429s consistently (shared pool) and liquid/lfm-2.5 504s consistently —
-// dropped. Added minimax/minimax-m3.1-flash:free (chat 200, image+video in)
-// and xingchen-agi/xing4.0-29b-a4b:free (chat 200 on retry — shared-pool
-// 429s under load, treat flaky).
+// Sweep 2026-10-26: minimax/minimax-m3.1-flash:free and thinkingmachines/inkling-small:free
+// dropped (404); recursive/flint-v1.0:free added (chat 200).
 export const KILO_MODELS = [
   {
     id: "kilo-auto/free",
@@ -145,13 +111,13 @@ export const KILO_MODELS = [
     source: "kilo",
   },
   {
-    id: "minimax/minimax-m3.1-flash:free",
-    name: "MiniMax M3.1 Flash Free",
+    id: "recursive/flint-v1.0:free",
+    name: "Recursive Flint v1.0 Free",
     reasoning: true,
-    contextWindow: 1_000_000,
-    maxTokens: 524_288,
+    contextWindow: 262_144,
+    maxTokens: 32_768,
     api: "openai-completions",
-    input: ["text", "image"],
+    input: ["text"],
     source: "kilo",
   },
   {
@@ -252,16 +218,6 @@ export const KILO_MODELS = [
     maxTokens: 32_768,
     api: "openai-completions",
     input: ["text"],
-    source: "kilo",
-  },
-  {
-    id: "thinkingmachines/inkling-small:free",
-    name: "Inkling Small Free",
-    reasoning: true,
-    contextWindow: 1_048_576,
-    maxTokens: 262_144,
-    api: "openai-completions",
-    input: ["text", "image"],
     source: "kilo",
   },
   {

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { config } from "../config.js";
 import { log } from "../utils/logger.js";
@@ -60,6 +61,8 @@ const OPENCODE_PROJECT_ID = randomBytes(20).toString("hex");
 
 // Bit-exact Identifier mask (low 48 bits as 12-hex)
 const OPENCODE_ID_MASK = (1n << 48n) - 1n;
+export const OPENCODE_SESSION_RE = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
+export const OPENCODE_REQUEST_RE = /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 
 let lastSessionTs = 0;
 let sessionCounter = 0;
@@ -97,7 +100,30 @@ export function generateRequestId(timestamp = Date.now()) {
   return `msg_${timeHexFrom(current)}${unstableRandom()}`;
 }
 
-export const OPENCODE_SESSION = generateSessionId();
+// One stable session per conversation window — shape must match
+// OPENCODE_SESSION_RE. Upstream decodes the embedded timestamp and 429s
+// sessions older than ~30 days (9router #5222, live-probed: -34d → 200,
+// -100d → 429), so a long-lived process re-mints its session weekly —
+// well inside the window — and keeps prompt-cache affinity the rest of the time.
+const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
+let openCodeSession = generateSessionId();
+let openCodeSessionMintedAt = Date.now();
+if (!OPENCODE_SESSION_RE.test(openCodeSession)) {
+  throw new Error("opencode session id generation failed shape check");
+}
+
+export function currentOpenCodeSession() {
+  if (Date.now() - openCodeSessionMintedAt > SESSION_MAX_AGE_MS) {
+    const fresh = generateSessionId();
+    if (OPENCODE_SESSION_RE.test(fresh)) {
+      openCodeSession = fresh;
+      openCodeSessionMintedAt = Date.now();
+    }
+  }
+  return openCodeSession;
+}
+
+export const OPENCODE_SESSION = openCodeSession;
 
 function loadCachedUA() {
   try {
@@ -155,14 +181,16 @@ export async function refreshOpenCodeUA() {
 export function opencodeHeaders(withRequestHeader = false, customAuth = null) {
   const traceId = randomBytes(16).toString("hex");
   const spanId = randomBytes(8).toString("hex");
+  const session = currentOpenCodeSession();
   const headers = {
     "User-Agent": getOpenCodeUA(),
     Authorization: customAuth || "Bearer public",
     "x-opencode-client": "desktop",
     "x-opencode-project": OPENCODE_PROJECT_ID,
-    "x-opencode-session": OPENCODE_SESSION,
-    "x-opencode-session-id": OPENCODE_SESSION,
-    "x-session-affinity": OPENCODE_SESSION,
+    "x-opencode-session": session,
+    // v2 gate (2026-10-14): BOTH session headers must be present and equal.
+    "x-opencode-session-id": session,
+    "x-session-affinity": session,
     b3: `${traceId}-${spanId}-1-${spanId}`,
     traceparent: `00-${traceId}-${spanId}-01`,
     Accept: "text/event-stream",
@@ -254,6 +282,80 @@ export function restoreToolAliases(text, aliases) {
   return text.replace(/([A-Za-z0-9_-]+)_pi\b/g, (match, base) => aliases[`${base}_pi`] ?? match);
 }
 
+// v2 gate (2026-10-25, 9router #5222): the CLI's <env> environment block must
+// be present in the system content — a foreign prompt without it answers 429
+// FreeUsageLimitError regardless of headers, UA or session. The gate reads
+// text only, so the block is appended to the caller's prompt; a prompt that
+// already carries <env> (a real opencode client) passes through untouched.
+// The shell wording stays canonical Linux — upstream also accepts the
+// platform variants (9router #5157), so one consistent platform story is fine.
+export const ENV_FINGERPRINT_NOTE = [
+  "Here is some useful information about the environment you are running in:",
+  "<env>",
+  `  Working directory: ${process.cwd()}`,
+  `  Workspace root folder: ${process.cwd()}`,
+  "  Is directory a git repo: no",
+  `  Platform: ${process.platform}`,
+  `  Prefer ${path.join(tmpdir(), "opencode")} over generic system temporary directories such as /tmp; it is pre-created and approved for external access.`,
+  "</env>",
+].join("\n");
+
+export function systemCarriesEnv(text) {
+  if (typeof text === "string") return text.includes("<env>");
+  if (Array.isArray(text)) {
+    return text.some(
+      (b) =>
+        b !== null &&
+        typeof b === "object" &&
+        typeof b.text === "string" &&
+        b.text.includes("<env>")
+    );
+  }
+  return false;
+}
+
+/** Append the <env> marker to the effective system prompt (chat + responses). */
+export function ensureEnvFingerprint(body, responses = false) {
+  if (responses) {
+    if (systemCarriesEnv(body.instructions)) return;
+    const instructions = body.instructions;
+    body.instructions =
+      typeof instructions === "string" && instructions.trim()
+        ? `${instructions}\n\n${ENV_FINGERPRINT_NOTE}`
+        : ENV_FINGERPRINT_NOTE;
+    return;
+  }
+  const messages = body.messages;
+  if (!Array.isArray(messages)) return;
+  const idx = messages.findIndex(
+    (m) =>
+      m !== null &&
+      typeof m === "object" &&
+      m.role === "system"
+  );
+  if (idx === -1) {
+    messages.unshift({
+      role: "system",
+      content: ENV_FINGERPRINT_NOTE,
+    });
+    return;
+  }
+  const target = messages[idx];
+  if (systemCarriesEnv(target.content)) return;
+  if (typeof target.content === "string") {
+    target.content = target.content.trim()
+      ? `${target.content}\n\n${ENV_FINGERPRINT_NOTE}`
+      : ENV_FINGERPRINT_NOTE;
+  } else if (Array.isArray(target.content)) {
+    target.content.push({
+      type: "text",
+      text: ENV_FINGERPRINT_NOTE,
+    });
+  } else {
+    target.content = ENV_FINGERPRINT_NOTE;
+  }
+}
+
 /**
  * Transforms request body to satisfy OpenCode Zen free-tier gate.
  * Returns { body, responsesPath: boolean }
@@ -276,9 +378,11 @@ export function transformOpencodeBody(body) {
     body.store = false;
     ensureResponsesFingerprintTools(body);
     sanitizeResponsesItems(body);
+    ensureEnvFingerprint(body, true);
     return { body, responsesPath: true };
   } else {
     ensureChatFingerprintTools(body);
+    ensureEnvFingerprint(body, false);
     return { body, responsesPath: false };
   }
 }

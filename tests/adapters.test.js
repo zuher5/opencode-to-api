@@ -11,7 +11,7 @@ import {
 
 test("OpenCode Zen Adapter - Chat Completions transform (v2 gate)", () => {
   const reqBody = {
-    model: "nemotron-3-ultra-free",
+    model: "beam-free",
     messages: [{ role: "user", content: "Hello" }],
     stream: false,
     tools: [

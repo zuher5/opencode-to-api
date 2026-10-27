@@ -20,7 +20,7 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
 - **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi chat upstream) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog `/zen/v1/models` belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (25 model).
 - **Dual Upstream Handlers**:
-  - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, incremental UTF-8 decoder & SSE event framing preservation).
+  - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, CLI `<env>` environment fingerprint injection pada system prompt untuk mencegah fake 429 `FreeUsageLimitError`, re-mint session ID mingguan agar session tidak kadaluarsa >30 hari, serta incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
 - **Format Streaming & Non-Streaming**: Mendukung format chunk SSE `[DONE]` serta agregasi otomatis stream menjadi respon JSON standar jika klien meminta `stream: false`.
 - **Triage Upstream 429/403 + Cooldown Reaktif**: Kegagalan upstream diklasifikasikan dari body, bukan diteruskan mentah-mentah.
@@ -34,37 +34,35 @@ Proyek ini di-porting dan diadaptasi dari implementasi upstream [`mannnrachman/p
 
 ## Model yang Didukung
 
-**25 Model Terkurasi (11 OpenCode Zen + 14 KiloCode Gateway)** — sinkron dengan pi-bansos v0.7.1
+**21 Model Terkurasi (8 OpenCode Zen + 13 KiloCode Gateway)** — sinkron dengan pi-bansos v0.7.2
 
-> Sweep 2026-10-20: model yang sudah mati di upstream dihapus (OpenCode 410/400: muse-spark 1.3/1.2, space-bunny, ll-alpha, step-5-preview, ling-3.0/3.1; Kilo 401/429/504: stealth/cat-jam, stealth/glyph-cluster, poolside/laguna-xs, liquid/lfm-2.5).
+> Sweep 2026-10-26: model yang dihapus dari katalog/404 di upstream dibersihkan.
+> - OpenCode Zen: hapus `minimax-m3.1-flash-free`, `nemotron-3-ultra-free`, `longcat-2.5-preview-free`, `cat-jam-free`. Tambah `flint-40b-free`. Context window `deepseek-v4.1-flash-free` dinaikkan ke 320K (max token 64K).
+> - KiloCode: hapus `minimax/minimax-m3.1-flash:free` dan `thinkingmachines/inkling-small:free` (404). Tambah `recursive/flint-v1.0:free` (chat 200).
 
-### OpenCode Zen (11 Model)
-- `beam-free` (Baru)
-- `minimax-m3.1-flash-free` (1M Context, Vision, Reasoning — Baru)
+### OpenCode Zen (8 Model)
+- `beam-free`
 - `mimo-v2.6-flash-free` (Vision, Reasoning)
-- `nemotron-3-ultra-free` (1M Context, Reasoning)
 - `nemotron-3.5-lightning-free` (Reasoning)
 - `big-pickle` (Reasoning)
-- `longcat-2.5-preview-free` (1M Context, Reasoning)
-- `deepseek-v4.1-flash-free` (Vision, Reasoning)
+- `deepseek-v4.1-flash-free` (320K Context, 64K Max Output, Vision, Reasoning)
+- `flint-40b-free` (200K Context, Reasoning — Baru)
 - `glm-5.3-flash-free` (Vision, Reasoning)
-- `cat-jam-free` (1M Context, Reasoning)
 - `nemotron-3.5-super-vl-free` (1M Context, Vision, Reasoning)
 
-### KiloCode Gateway (14 Model)
+### KiloCode Gateway (13 Model)
 - `kilo-auto/free`
-- `minimax/minimax-m3.1-flash:free` (1M Context, Vision, Reasoning — Baru)
-- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning — Baru)
+- `recursive/flint-v1.0:free` (262K Context, Reasoning — Baru)
+- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning)
 - `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning)
 - `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning)
 - `dots-studio/dots-3-note-preview:free` (Vision, Reasoning)
 - `cohere/north-mini-code:free`
 - `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (Vision, Reasoning)
-- `openrouter/free` (Pinned, Vision)
+- `openrouter/free` (Vision)
 - `nvidia/nemotron-3.5-lightning:free` (1M Context, Reasoning)
 - `nvidia/nemotron-3.5-content-safety:free` (Vision, Reasoning)
 - `poolside/laguna-s-2.1:free` (Reasoning)
-- `thinkingmachines/inkling-small:free` (1M Context, Vision, Reasoning)
 - `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning)
 
 ---
@@ -96,7 +94,7 @@ Server akan mencetak URL dan Local API Key saat startup:
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
   • Local API Key  : sk-2004
-  • Active Models  : 25 models available
+  • Active Models  : 21 models available
 ```
 
 Buka `http://127.0.0.1:18080/` di browser (Chrome, Firefox, dsb.) untuk mengakses:
@@ -134,7 +132,7 @@ curl http://127.0.0.1:18080/v1/chat/completions \
   -H "Authorization: Bearer sk-2004" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "nemotron-3-ultra-free",
+    "model": "beam-free",
     "messages": [{"role": "user", "content": "Halo!"}],
     "stream": false
   }'

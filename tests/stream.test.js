@@ -68,7 +68,7 @@ test("Stream Aggregator - aggregates SSE chunks with tool calls and alias restor
   });
 
   const aliases = { bash_pi: "bash" };
-  const aggregated = await aggregateStreamToResponse(stream, "nemotron-3-ultra-free", aliases);
+  const aggregated = await aggregateStreamToResponse(stream, "beam-free", aliases);
 
   assert.equal(aggregated.object, "chat.completion");
   assert.equal(aggregated.choices[0].finish_reason, "tool_calls");

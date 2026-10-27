@@ -10,17 +10,23 @@ import {
   OPENCODE_RESPONSES_MODELS,
 } from "../src/catalog/definitions.js";
 
-test("Catalog - Models definition and discovery", () => {
+test("Catalog - Models definition and discovery (v0.7.2 sweep)", () => {
   const catalog = getAliveCatalog();
-  assert.equal(catalog.length, 25, "Should have exactly 25 curated models (v0.7.1 sweep)");
-  assert.equal(OPENCODE_MODELS.length, 11, "Should have 11 OpenCode models");
-  assert.equal(KILO_MODELS.length, 14, "Should have 14 Kilo models");
+  assert.equal(catalog.length, 21, "Should have exactly 21 curated models (v0.7.2 sweep)");
+  assert.equal(OPENCODE_MODELS.length, 8, "Should have 8 OpenCode models");
+  assert.equal(KILO_MODELS.length, 13, "Should have 13 Kilo models");
 
   // Check an OpenCode model
-  const nemotron = findModel("nemotron-3-ultra-free");
-  assert.ok(nemotron);
-  assert.equal(nemotron.source, "opencode");
-  assert.equal(nemotron.contextWindow, 1_000_000);
+  const beam = findModel("beam-free");
+  assert.ok(beam);
+  assert.equal(beam.source, "opencode");
+  assert.equal(beam.contextWindow, 262_144);
+
+  // Check DeepSeek context bump (320k)
+  const deepseek = findModel("deepseek-v4.1-flash-free");
+  assert.ok(deepseek);
+  assert.equal(deepseek.contextWindow, 320_000);
+  assert.equal(deepseek.maxTokens, 64_000);
 
   // Check a Kilo model
   const kiloAuto = findModel("kilo-auto/free");
@@ -38,12 +44,9 @@ test("Catalog - Models definition and discovery", () => {
   assert.equal(KILO_MODEL_IDS.size, KILO_MODELS.length);
 });
 
-test("Catalog - v0.7.1 sweep: additions register and route correctly", () => {
-  const newOpencode = ["beam-free", "minimax-m3.1-flash-free"];
-  const newKilo = [
-    "minimax/minimax-m3.1-flash:free",
-    "xingchen-agi/xing4.0-29b-a4b:free",
-  ];
+test("Catalog - v0.7.2 additions register and route correctly", () => {
+  const newOpencode = ["flint-40b-free"];
+  const newKilo = ["recursive/flint-v1.0:free"];
 
   const models = modelsFromCache({
     fetchedAt: 1,
@@ -72,27 +75,10 @@ test("Catalog - v0.7.1 sweep: additions register and route correctly", () => {
 });
 
 test("Catalog - curated list is authoritative, not the live catalog", () => {
-  // Real observed gap: these curated, chat-verified ids are absent from the
-  // live /zen/v1/models response (and Kilo drifts to a `:free`-less id).
-  const absentFromLiveCatalog = [
-    "nemotron-3-ultra-free",
-    "longcat-2.5-preview-free",
-    "cat-jam-free",
-    "minimax-m3.1-flash-free",
-    "minimax/minimax-m3.1-flash:free",
-    "thinkingmachines/inkling-small:free",
-  ];
-
-  // A cache that lists none of them must not hide them.
+  // A cache that lists only a subset must not hide the other curated models.
   const liveCache = { fetchedAt: 1, opencode: ["beam-free"], kilo: ["kilo-auto/free"] };
   const models = modelsFromCache(liveCache);
-  assert.equal(models.length, 25);
-  for (const id of absentFromLiveCatalog) {
-    assert.ok(
-      models.some((m) => m.id === id),
-      `${id} must stay routable even though the live catalog omits it`,
-    );
-  }
+  assert.equal(models.length, 21);
 
   // Online and offline starts must expose the same catalog.
   const offline = modelsFromCache({ fetchedAt: 0 });
@@ -108,12 +94,16 @@ test("Catalog - curated list is authoritative, not the live catalog", () => {
     opencode: ["not-a-real-model"],
     kilo: ["also/fake:free"],
   });
-  assert.equal(foreign.length, 25);
+  assert.equal(foreign.length, 21);
 });
 
-test("Catalog - v0.7.1 sweep: dead upstream models are dropped", () => {
-  // OpenCode: 410/400 upstream (see pi-bansos v0.7.0 sweep notes)
+test("Catalog - v0.7.2 sweep: dead upstream models are dropped", () => {
+  // OpenCode: dropped upstream / absent from catalog
   const droppedOpencode = [
+    "minimax-m3.1-flash-free",
+    "nemotron-3-ultra-free",
+    "longcat-2.5-preview-free",
+    "cat-jam-free",
     "muse-spark-1.3-contributor-free",
     "muse-spark-1.2-contributor-free",
     "space-bunny-free",
@@ -122,8 +112,10 @@ test("Catalog - v0.7.1 sweep: dead upstream models are dropped", () => {
     "ling-3.0-flash-fin-free",
     "ling-3.1-flash-free",
   ];
-  // Kilo: 401 paid-model, 429 shared pool, 504 upstream
+  // Kilo: 404 / 401 / 429
   const droppedKilo = [
+    "minimax/minimax-m3.1-flash:free",
+    "thinkingmachines/inkling-small:free",
     "stealth/cat-jam",
     "stealth/glyph-cluster",
     "poolside/laguna-xs-2.1:free",
@@ -145,5 +137,5 @@ test("Catalog - v0.7.1 sweep: dead upstream models are dropped", () => {
 test("Catalog - Fallback when cache is empty", () => {
   const emptyCache = { fetchedAt: 0, opencode: [], kilo: [] };
   const models = modelsFromCache(emptyCache);
-  assert.equal(models.length, 25, "Fallback should provide all 25 known models");
+  assert.equal(models.length, 21, "Fallback should provide all 21 known models");
 });
