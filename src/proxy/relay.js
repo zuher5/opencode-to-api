@@ -43,6 +43,9 @@ export function saveRelayState(state) {
 let relayState = loadRelayState();
 let relayHits = 0;
 
+/** Which egress produced a relayFetch Response: "direct" or relay URL. */
+export const responseVia = new WeakMap();
+
 export function getRelayStats() {
   return {
     ...relayState,
@@ -65,20 +68,23 @@ export function getRelayDetails() {
   };
 }
 
-export function addRelay(rawUrl, label = "") {
+export function addRelay(rawUrl, label = "", auth = "") {
   const cleanUrl = (rawUrl || "").trim().replace(/\/+$/, "");
   if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
     throw new Error("Invalid relay URL. Must start with http:// or https://");
   }
+  const cleanAuth = typeof auth === "string" ? auth.trim() : "";
   const existing = relayState.relays.find((r) => r.url === cleanUrl);
   if (!existing) {
     relayState.relays.push({
       url: cleanUrl,
       label: (label || "").trim() || "Manual Relay",
+      ...(cleanAuth ? { auth: cleanAuth } : {}),
       addedAt: new Date().toISOString(),
     });
-  } else if (label) {
-    existing.label = label.trim();
+  } else {
+    if (label) existing.label = label.trim();
+    if (cleanAuth) existing.auth = cleanAuth;
   }
   if (!relayState.url) {
     relayState.url = cleanUrl;
@@ -143,12 +149,16 @@ export function orderedRelayCandidates() {
 
 export async function relayFetch(url, opts = {}) {
   if (!relayState.enabled) {
-    return fetch(url, opts);
+    const res = await fetch(url, opts);
+    responseVia.set(res, "direct");
+    return res;
   }
 
   const candidates = orderedRelayCandidates();
   if (candidates.length === 0) {
-    return fetch(url, opts);
+    const res = await fetch(url, opts);
+    responseVia.set(res, "direct");
+    return res;
   }
 
   const parsedTarget = new URL(url);
@@ -161,12 +171,23 @@ export async function relayFetch(url, opts = {}) {
       headers.set("x-relay-target", `${parsedTarget.protocol}//${parsedTarget.host}`);
       headers.set("x-relay-path", `${parsedTarget.pathname}${parsedTarget.search}`);
 
+      const relayAuth = relayState.relays.find((r) => r.url === relay)?.auth;
+      if (relayAuth) {
+        headers.set("x-relay-auth", relayAuth);
+      }
+
       const res = await fetch(relay, { ...opts, headers });
-      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429 && res.status !== 408)) {
+      responseVia.set(res, relay);
+
+      // 401 from a hardened worker = auth mismatch; distinct from upstream's own 401.
+      // 4xx-except-429/408/403 is our payload's fault (400/404…) — rolling to another
+      // relay would replay the same failure.
+      if (res.ok || (res.status >= 400 && res.status < 500 && res.status !== 429 && res.status !== 408 && res.status !== 403)) {
         markRelaySuccess(relay);
         return res;
       }
 
+      // 429/408/403/5xx: this egress IP is limited/flagged or relay is unhealthy.
       markRelayFailure(relay, res.status);
       await res.arrayBuffer().catch(() => {});
       lastError = new Error(`relay ${relay} responded with HTTP ${res.status}`);
@@ -177,5 +198,7 @@ export async function relayFetch(url, opts = {}) {
   }
 
   log("warn", "All relays exhausted, falling back to direct", { error: String(lastError) });
-  return fetch(url, opts);
+  const directRes = await fetch(url, opts);
+  responseVia.set(directRes, "direct");
+  return directRes;
 }

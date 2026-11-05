@@ -17,6 +17,7 @@ import {
 } from "./proxy/upstream-health.js";
 import {
   relayFetch,
+  responseVia,
   getRelayStats,
   getRelayDetails,
   addRelay,
@@ -24,6 +25,7 @@ import {
   setActiveRelay,
   setRelayEnabled,
 } from "./proxy/relay.js";
+import { deployVercelRelay, deployCloudflareRelay } from "./proxy/relay-deploy.js";
 import { pipeUpstreamStream, aggregateStreamToResponse } from "./proxy/stream.js";
 
 const ALLOWED_METHODS = new Set(["GET", "POST", "OPTIONS", "HEAD"]);
@@ -180,8 +182,28 @@ export async function handleRequest(req, res) {
           result = setRelayEnabled(body.enabled);
           break;
         case "add":
-          result = addRelay(body.url, body.label);
+          result = addRelay(body.url, body.label, body.auth);
           break;
+        case "deploy-vercel": {
+          if (!body.token || typeof body.token !== "string") {
+            return sendJsonError(res, 400, "Missing required 'token' parameter for Vercel deploy", "invalid_request_error");
+          }
+          const name = body.name || "opencode-relay";
+          const deployedUrl = await deployVercelRelay(body.token.trim(), name);
+          result = addRelay(deployedUrl, `Vercel: ${name}`);
+          setRelayEnabled(true);
+          break;
+        }
+        case "deploy-cloudflare": {
+          if (!body.token || typeof body.token !== "string") {
+            return sendJsonError(res, 400, "Missing required 'token' parameter for Cloudflare deploy", "invalid_request_error");
+          }
+          const name = body.name || "opencode-relay";
+          const deployed = await deployCloudflareRelay(body.token.trim(), name);
+          result = addRelay(deployed.url, `Cloudflare: ${name}`, deployed.auth);
+          setRelayEnabled(true);
+          break;
+        }
         case "use":
           result = setActiveRelay(body.url);
           break;
@@ -189,7 +211,7 @@ export async function handleRequest(req, res) {
           result = removeRelay(body.url);
           break;
         default:
-          return sendJsonError(res, 400, "Unknown relay action. Allowed: toggle, add, use, remove", "invalid_request_error");
+          return sendJsonError(res, 400, "Unknown relay action. Allowed: toggle, add, use, remove, deploy-vercel, deploy-cloudflare", "invalid_request_error");
       }
       const resJson = JSON.stringify(result);
       res.writeHead(200, {
@@ -333,8 +355,6 @@ export async function handleRequest(req, res) {
       );
     }
 
-    const relayActive = getRelayStats().enabled;
-
     const clientWantsStream = parsedBody.stream === true;
 
     try {
@@ -350,13 +370,14 @@ export async function handleRequest(req, res) {
 
         if (!upstreamResponse.ok) {
           const errText = await upstreamResponse.text().catch(() => "Unknown upstream error");
+          const via = responseVia.get(upstreamResponse) ?? "direct";
           const triage = recordUpstreamFailure({
             upstream,
             model: requestedModel,
             status: upstreamResponse.status,
             body: errText,
             retryAfter: upstreamResponse.headers.get("retry-after"),
-            relayActive,
+            relayActive: via !== "direct",
           });
           if (triage.cooldownMs > 0) {
             log("warn", "Upstream triaged, cooling down", {
@@ -430,13 +451,14 @@ export async function handleRequest(req, res) {
 
         if (!upstreamResponse.ok) {
           const errText = await upstreamResponse.text().catch(() => "Unknown upstream error");
+          const via = responseVia.get(upstreamResponse) ?? "direct";
           const triage = recordUpstreamFailure({
             upstream,
             model: requestedModel,
             status: upstreamResponse.status,
             body: errText,
             retryAfter: upstreamResponse.headers.get("retry-after"),
-            relayActive,
+            relayActive: via !== "direct",
           });
           if (triage.cooldownMs > 0) {
             log("warn", "Upstream triaged, cooling down", {

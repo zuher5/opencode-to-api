@@ -8,7 +8,10 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 
 - **Zero Dependency**: Murni dibangun dengan modul bawaan Node.js (Node 20+), tanpa instalasi paket eksternal npm yang berat.
 - **Web GUI & Chat Playground**: Tersedia antarmuka web interaktif di `http://127.0.0.1:18080/` untuk chat testing langsung, pengaturan relay kustom, dan salin Local API Key.
-- **Manajemen Relay Server**: Dukungan konfigurasi relay egress (toggle on/off, tambah relay kustom, switch relay aktif, dan auto failover dengan cooldown).
+- **Manajemen Relay Server**: Dukungan konfigurasi relay egress (toggle on/off, tambah relay kustom dengan header `x-relay-auth`, switch relay aktif, auto failover dengan cooldown, serta deploy otomatis relay worker ke Cloudflare Workers atau Vercel Edge).
+- **Deployer Otomatis Relay**:
+  - **Cloudflare Workers**: Deploy otomatis modul worker dengan proteksi 32-byte auth secret (`x-relay-auth`), constant-time string comparison, payload size guard (32MB), loopback/private IP filter, dan allowlist upstream.
+  - **Vercel Edge Functions**: Deploy otomatis edge function relay dengan route rewrite dan SSR isolation.
 - **OpenAI-Compatible**:
   - `GET /v1/models`
   - `POST /v1/chat/completions` (mendukung streaming SSE dan non-streaming!)
@@ -51,17 +54,17 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 ### KiloCode Gateway (13 Model)
 - `kilo-auto/free`
 - `recursive/flint-v1.0:free` (262K Context, Reasoning — Baru)
-- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning)
-- `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning)
-- `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning)
-- `dots-studio/dots-3-note-preview:free` (Vision, Reasoning)
+- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning, thinkingFormat: openrouter)
+- `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning, thinkingFormat: openrouter)
+- `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning, thinkingFormat: openrouter)
+- `dots-studio/dots-3-note-preview:free` (Vision, Reasoning, thinkingFormat: openrouter)
 - `cohere/north-mini-code:free`
-- `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (Vision, Reasoning)
+- `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (Vision, Reasoning, thinkingFormat: openrouter)
 - `openrouter/free` (Vision)
-- `nvidia/nemotron-3.5-lightning:free` (1M Context, Reasoning)
-- `nvidia/nemotron-3.5-content-safety:free` (Vision, Reasoning)
-- `poolside/laguna-s-2.1:free` (Reasoning)
-- `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning)
+- `nvidia/nemotron-3.5-lightning:free` (1M Context, Reasoning, thinkingFormat: openrouter)
+- `nvidia/nemotron-3.5-content-safety:free` (Vision, Reasoning, thinkingFormat: openrouter)
+- `poolside/laguna-s-2.1:free` (Reasoning, thinkingFormat: openrouter)
+- `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning, thinkingFormat: openrouter)
 
 ---
 
@@ -158,7 +161,7 @@ print(response.choices[0].message.content)
 
 ## Menjalankan Pengujian (Testing)
 
-Proyek ini dilengkapi dengan unit test dan mock upstream:
+Proyek ini dilengkapi dengan unit test menyeluruh (38 unit tests) dan mock upstream:
 ```bash
 npm test
 ```

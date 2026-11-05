@@ -128,6 +128,7 @@ export const KILO_MODELS = [
     maxTokens: 235_929,
     api: "openai-completions",
     input: ["text"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -138,6 +139,7 @@ export const KILO_MODELS = [
     maxTokens: 65_536,
     api: "openai-completions",
     input: ["text"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -148,6 +150,7 @@ export const KILO_MODELS = [
     maxTokens: 235_929,
     api: "openai-completions",
     input: ["text"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -158,6 +161,7 @@ export const KILO_MODELS = [
     maxTokens: 460_800,
     api: "openai-completions",
     input: ["text", "image"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -178,6 +182,7 @@ export const KILO_MODELS = [
     maxTokens: 65_536,
     api: "openai-completions",
     input: ["text", "image"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -198,6 +203,7 @@ export const KILO_MODELS = [
     maxTokens: 65_536,
     api: "openai-completions",
     input: ["text"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -208,6 +214,7 @@ export const KILO_MODELS = [
     maxTokens: 8_192,
     api: "openai-completions",
     input: ["text", "image"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -218,6 +225,7 @@ export const KILO_MODELS = [
     maxTokens: 32_768,
     api: "openai-completions",
     input: ["text"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
   {
@@ -228,6 +236,7 @@ export const KILO_MODELS = [
     maxTokens: 131_072,
     api: "openai-completions",
     input: ["text", "image"],
+    thinkingFormat: "openrouter",
     source: "kilo",
   },
 ];
