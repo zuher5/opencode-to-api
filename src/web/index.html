@@ -657,7 +657,33 @@
         <label for="new-relay-label">Label (Optional)</label>
         <input type="text" id="new-relay-label" placeholder="e.g. Vercel SG Edge">
 
+        <label for="new-relay-auth">Auth Secret (Optional)</label>
+        <input type="password" id="new-relay-auth" placeholder="x-relay-auth secret token">
+
         <button class="btn" style="width:100%;" onclick="submitAddRelay()">Save Relay</button>
+      </div>
+
+      <!-- Auto Deploy Relay -->
+      <div class="card" style="margin-top:20px;">
+        <h2 class="card-title">Deploy Relay Worker</h2>
+        <p style="font-size:0.78rem; color:var(--secondary); margin-bottom:16px;">
+          Deploy dedicated relay worker to Cloudflare Workers or Vercel Edge automatically.
+        </p>
+
+        <label for="deploy-provider">Provider</label>
+        <select id="deploy-provider">
+          <option value="cloudflare">Cloudflare Workers (Hardened + Auth)</option>
+          <option value="vercel">Vercel Edge Functions</option>
+        </select>
+
+        <label for="deploy-token">API Token</label>
+        <input type="password" id="deploy-token" placeholder="Cloudflare API Token or Vercel Token">
+
+        <label for="deploy-name">Worker Name (Optional)</label>
+        <input type="text" id="deploy-name" placeholder="e.g. my-bansos-relay">
+
+        <button class="btn btn-secondary" style="width:100%;" id="deploy-btn" onclick="submitDeployRelay()">Deploy Worker</button>
+      </div>
       </div>
     </div>
   </div>
@@ -890,12 +916,13 @@
     async function submitAddRelay() {
       const url = document.getElementById('new-relay-url').value.trim();
       const label = document.getElementById('new-relay-label').value.trim();
+      const auth = document.getElementById('new-relay-auth').value.trim();
       if (!url) return alert('Please enter a relay worker URL');
       try {
         const res = await fetch('/api/relay', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add', url, label })
+          body: JSON.stringify({ action: 'add', url, label, auth })
         });
         if (!res.ok) {
           const err = await res.json();
@@ -903,9 +930,42 @@
         }
         document.getElementById('new-relay-url').value = '';
         document.getElementById('new-relay-label').value = '';
+        document.getElementById('new-relay-auth').value = '';
         await loadRelayData();
       } catch (err) {
         alert(err.message);
+      }
+    }
+
+    async function submitDeployRelay() {
+      const provider = document.getElementById('deploy-provider').value;
+      const token = document.getElementById('deploy-token').value.trim();
+      const name = document.getElementById('deploy-name').value.trim();
+      if (!token) return alert('Please enter API token');
+      const btn = document.getElementById('deploy-btn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deploying...';
+      try {
+        const action = provider === 'cloudflare' ? 'deploy-cloudflare' : 'deploy-vercel';
+        const res = await fetch('/api/relay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, token, name: name || undefined })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert(err.error?.message || 'Deployment failed');
+        }
+        document.getElementById('deploy-token').value = '';
+        document.getElementById('deploy-name').value = '';
+        alert('Relay successfully deployed and activated!');
+        await loadRelayData();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
       }
     }
 
