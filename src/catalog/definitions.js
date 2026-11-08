@@ -25,6 +25,26 @@ export const OPENCODE_MODELS = [
     source: "opencode",
   },
   {
+    id: "crouton-alpha-free",
+    name: "Crouton Alpha Free",
+    reasoning: true,
+    contextWindow: 262_144,
+    maxTokens: 65_536,
+    api: "openai-completions",
+    input: ["text"],
+    source: "opencode",
+  },
+  {
+    id: "pulse-alpha-free",
+    name: "Pulse Alpha Free",
+    reasoning: true,
+    contextWindow: 262_144,
+    maxTokens: 65_536,
+    api: "openai-completions",
+    input: ["text"],
+    source: "opencode",
+  },
+  {
     id: "mimo-v2.6-flash-free",
     name: "MiMo V2.6 Flash Free",
     reasoning: true,
@@ -97,8 +117,9 @@ export const OPENCODE_MODELS = [
 ];
 
 // KiloCode gateway free models (keyless — https://kilo.ai/docs/gateway).
-// Sweep 2026-10-26: minimax/minimax-m3.1-flash:free and thinkingmachines/inkling-small:free
-// dropped (404); recursive/flint-v1.0:free added (chat 200).
+// Sweep 2026-11-06 (live catalog): the gateway shed most of its free list —
+// dropped: recursive/flint-v1.0, xingchen-agi/xing4.0, nemotron-3-super,
+// nemotron-3.5-content-safety, poolside/laguna-s. All 8 survivors chat-verified 200.
 export const KILO_MODELS = [
   {
     id: "kilo-auto/free",
@@ -111,43 +132,11 @@ export const KILO_MODELS = [
     source: "kilo",
   },
   {
-    id: "recursive/flint-v1.0:free",
-    name: "Recursive Flint v1.0 Free",
-    reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 32_768,
-    api: "openai-completions",
-    input: ["text"],
-    source: "kilo",
-  },
-  {
-    id: "xingchen-agi/xing4.0-29b-a4b:free",
-    name: "Xing 4.0 29B A4B Free",
-    reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 235_929,
-    api: "openai-completions",
-    input: ["text"],
-    thinkingFormat: "openrouter",
-    source: "kilo",
-  },
-  {
     id: "nvidia/nemotron-3-ultra-550b-a55b:free",
     name: "Nemotron 3 Ultra Free",
     reasoning: true,
     contextWindow: 1_000_000,
     maxTokens: 65_536,
-    api: "openai-completions",
-    input: ["text"],
-    thinkingFormat: "openrouter",
-    source: "kilo",
-  },
-  {
-    id: "nvidia/nemotron-3-super-120b-a12b:free",
-    name: "Nemotron 3 Super Free",
-    reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 235_929,
     api: "openai-completions",
     input: ["text"],
     thinkingFormat: "openrouter",
@@ -201,28 +190,6 @@ export const KILO_MODELS = [
     reasoning: true,
     contextWindow: 1_000_000,
     maxTokens: 65_536,
-    api: "openai-completions",
-    input: ["text"],
-    thinkingFormat: "openrouter",
-    source: "kilo",
-  },
-  {
-    id: "nvidia/nemotron-3.5-content-safety:free",
-    name: "Nemotron 3.5 Content Safety Free",
-    reasoning: true,
-    contextWindow: 128_000,
-    maxTokens: 8_192,
-    api: "openai-completions",
-    input: ["text", "image"],
-    thinkingFormat: "openrouter",
-    source: "kilo",
-  },
-  {
-    id: "poolside/laguna-s-2.1:free",
-    name: "Laguna S 2.1 Free",
-    reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 32_768,
     api: "openai-completions",
     input: ["text"],
     thinkingFormat: "openrouter",

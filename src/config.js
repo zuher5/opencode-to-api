@@ -17,7 +17,7 @@ export const config = {
   kiloChatUrl: process.env.KILO_CHAT_URL || "https://api.kilo.ai/api/gateway/chat/completions",
   kiloModelsUrl: process.env.KILO_MODELS_URL || "https://api.kilo.ai/api/gateway/models",
   opencodeUaEnv: "BANSOS_OPENCODE_UA",
-  opencodeUaFallback: "1.19.5",
+  opencodeUaFallback: "opencode/dev/0.0.0-dev-202610272228/opencode",
   timeoutMs: Number(process.env.TIMEOUT_MS) || 300_000,
   relayMaxTokens: 131_072,
 };

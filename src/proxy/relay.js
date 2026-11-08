@@ -134,6 +134,27 @@ export function updateRelayConfig(newState) {
   return relayState;
 }
 
+// v3 wire (9router #5381): OpenCode direct requests use a FRESH TLS
+// connection each time — keep-alive socket reuse lets one flagged
+// (ip, session) poison every request riding that connection (429 cascade).
+let opencodeFreshDispatcher = null;
+try {
+  const { Agent } = await import("undici");
+  opencodeFreshDispatcher = new Agent({
+    keepAliveTimeout: 1,
+    keepAliveMaxTimeout: 1,
+    keepAliveTimeoutThreshold: 1,
+  });
+} catch {}
+
+function opencodeDirectFetch(url, opts) {
+  const isOpencode = typeof url === "string" && url.startsWith(config.upstreamOpenCode);
+  if (isOpencode && opencodeFreshDispatcher) {
+    return fetch(url, { ...opts, dispatcher: opencodeFreshDispatcher });
+  }
+  return fetch(url, opts);
+}
+
 export function orderedRelayCandidates() {
   const urls = relayState.relays.map((r) => r.url).filter(Boolean);
   const ordered = urls.filter(isRelayHealthy);
@@ -149,14 +170,14 @@ export function orderedRelayCandidates() {
 
 export async function relayFetch(url, opts = {}) {
   if (!relayState.enabled) {
-    const res = await fetch(url, opts);
+    const res = await opencodeDirectFetch(url, opts);
     responseVia.set(res, "direct");
     return res;
   }
 
   const candidates = orderedRelayCandidates();
   if (candidates.length === 0) {
-    const res = await fetch(url, opts);
+    const res = await opencodeDirectFetch(url, opts);
     responseVia.set(res, "direct");
     return res;
   }
@@ -198,7 +219,7 @@ export async function relayFetch(url, opts = {}) {
   }
 
   log("warn", "All relays exhausted, falling back to direct", { error: String(lastError) });
-  const directRes = await fetch(url, opts);
+  const directRes = await opencodeDirectFetch(url, opts);
   responseVia.set(directRes, "direct");
   return directRes;
 }

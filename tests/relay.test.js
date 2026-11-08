@@ -116,3 +116,28 @@ test("Relay deploy - validation and mock deployment flow", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("Relay - direct OpenCode fetch marks responseVia direct", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    let calledUrl = null;
+    let receivedOpts = null;
+    globalThis.fetch = async (url, opts) => {
+      calledUrl = String(url);
+      receivedOpts = opts;
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+
+    setRelayEnabled(false);
+    const res = await relayFetch("https://opencode.ai/inference/v1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(responseVia.get(res), "direct");
+    assert.equal(calledUrl, "https://opencode.ai/inference/v1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

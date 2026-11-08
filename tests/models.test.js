@@ -10,17 +10,28 @@ import {
   OPENCODE_RESPONSES_MODELS,
 } from "../src/catalog/definitions.js";
 
-test("Catalog - Models definition and discovery (v0.7.2 sweep)", () => {
+test("Catalog - Models definition and discovery (v0.8.0 sweep)", () => {
   const catalog = getAliveCatalog();
-  assert.equal(catalog.length, 21, "Should have exactly 21 curated models (v0.7.2 sweep)");
-  assert.equal(OPENCODE_MODELS.length, 8, "Should have 8 OpenCode models");
-  assert.equal(KILO_MODELS.length, 13, "Should have 13 Kilo models");
+  assert.equal(catalog.length, 18, "Should have exactly 18 curated models (v0.8.0 sweep)");
+  assert.equal(OPENCODE_MODELS.length, 10, "Should have 10 OpenCode models");
+  assert.equal(KILO_MODELS.length, 8, "Should have 8 Kilo models");
 
   // Check an OpenCode model
   const beam = findModel("beam-free");
   assert.ok(beam);
   assert.equal(beam.source, "opencode");
   assert.equal(beam.contextWindow, 262_144);
+
+  // Check v0.8.0 OpenCode additions
+  const crouton = findModel("crouton-alpha-free");
+  assert.ok(crouton);
+  assert.equal(crouton.source, "opencode");
+  assert.equal(crouton.contextWindow, 262_144);
+
+  const pulse = findModel("pulse-alpha-free");
+  assert.ok(pulse);
+  assert.equal(pulse.source, "opencode");
+  assert.equal(pulse.contextWindow, 262_144);
 
   // Check DeepSeek context bump (320k)
   const deepseek = findModel("deepseek-v4.1-flash-free");
@@ -44,9 +55,9 @@ test("Catalog - Models definition and discovery (v0.7.2 sweep)", () => {
   assert.equal(KILO_MODEL_IDS.size, KILO_MODELS.length);
 });
 
-test("Catalog - v0.7.2 additions register and route correctly", () => {
-  const newOpencode = ["flint-40b-free"];
-  const newKilo = ["recursive/flint-v1.0:free"];
+test("Catalog - v0.8.0 additions register and route correctly", () => {
+  const newOpencode = ["crouton-alpha-free", "pulse-alpha-free", "flint-40b-free"];
+  const newKilo = ["nvidia/nemotron-3.5-lightning:free"];
 
   const models = modelsFromCache({
     fetchedAt: 1,
@@ -78,7 +89,7 @@ test("Catalog - curated list is authoritative, not the live catalog", () => {
   // A cache that lists only a subset must not hide the other curated models.
   const liveCache = { fetchedAt: 1, opencode: ["beam-free"], kilo: ["kilo-auto/free"] };
   const models = modelsFromCache(liveCache);
-  assert.equal(models.length, 21);
+  assert.equal(models.length, 18);
 
   // Online and offline starts must expose the same catalog.
   const offline = modelsFromCache({ fetchedAt: 0 });
@@ -94,10 +105,10 @@ test("Catalog - curated list is authoritative, not the live catalog", () => {
     opencode: ["not-a-real-model"],
     kilo: ["also/fake:free"],
   });
-  assert.equal(foreign.length, 21);
+  assert.equal(foreign.length, 18);
 });
 
-test("Catalog - v0.7.2 sweep: dead upstream models are dropped", () => {
+test("Catalog - v0.8.0 sweep: dead upstream models are dropped", () => {
   // OpenCode: dropped upstream / absent from catalog
   const droppedOpencode = [
     "minimax-m3.1-flash-free",
@@ -120,6 +131,11 @@ test("Catalog - v0.7.2 sweep: dead upstream models are dropped", () => {
     "stealth/glyph-cluster",
     "poolside/laguna-xs-2.1:free",
     "liquid/lfm-2.5-2.6b:free",
+    "recursive/flint-v1.0:free",
+    "xingchen-agi/xing4.0-29b-a4b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "poolside/laguna-s-2.1:free",
   ];
 
   for (const id of [...droppedOpencode, ...droppedKilo]) {
@@ -137,5 +153,5 @@ test("Catalog - v0.7.2 sweep: dead upstream models are dropped", () => {
 test("Catalog - Fallback when cache is empty", () => {
   const emptyCache = { fetchedAt: 0, opencode: [], kilo: [] };
   const models = modelsFromCache(emptyCache);
-  assert.equal(models.length, 21, "Fallback should provide all 21 known models");
+  assert.equal(models.length, 18, "Fallback should provide all 18 known models");
 });

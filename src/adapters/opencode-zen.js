@@ -7,7 +7,7 @@ import { log } from "../utils/logger.js";
 import { OPENCODE_RESPONSES_MODELS } from "../catalog/definitions.js";
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const OPENCODE_UA_VERSION_RE = /^\d+\.\d+\.\d+$/;
+export const OPENCODE_UA_VERSION_RE = /^opencode\/(?:dev\/)?[\w.-]+\/opencode$/;
 
 // v2 gate (2026-10-14): exact read + shell tool schemas from packages/core/src/tool/plugin/{read,shell}.ts
 export const OPENCODE_EXACT_TOOLS = [
@@ -130,25 +130,31 @@ function loadCachedUA() {
     const versionFile = path.join(config.dataDir, "opencode-version.json");
     if (fs.existsSync(versionFile)) {
       const parsed = JSON.parse(fs.readFileSync(versionFile, "utf8"));
-      if (typeof parsed?.version === "string" && OPENCODE_UA_VERSION_RE.test(parsed.version)) {
-        return parsed.version;
+      if (typeof parsed?.ua === "string" && OPENCODE_UA_VERSION_RE.test(parsed.ua)) {
+        return parsed.ua;
+      }
+      if (typeof parsed?.version === "string") {
+        const candidate = parsed.version.startsWith("opencode/")
+          ? parsed.version
+          : `opencode/dev/${parsed.version}/opencode`;
+        if (OPENCODE_UA_VERSION_RE.test(candidate)) return candidate;
       }
     }
   } catch {}
   return null;
 }
 
-let liveOpenCodeVersion = loadCachedUA();
+let liveOpenCodeUA = loadCachedUA();
 
 export function getOpenCodeUA() {
   const override = process.env[config.opencodeUaEnv]?.trim();
   if (override) {
     return override.startsWith("opencode/") ? override : `opencode/${override}`;
   }
-  if (liveOpenCodeVersion && OPENCODE_UA_VERSION_RE.test(liveOpenCodeVersion)) {
-    return `opencode/${liveOpenCodeVersion}`;
+  if (liveOpenCodeUA && OPENCODE_UA_VERSION_RE.test(liveOpenCodeUA)) {
+    return liveOpenCodeUA;
   }
-  return `opencode/${config.opencodeUaFallback}`;
+  return config.opencodeUaFallback;
 }
 
 export async function refreshOpenCodeUA() {
@@ -161,44 +167,47 @@ export async function refreshOpenCodeUA() {
     if (!res.ok) return;
     const data = await res.json();
     const version = data?.version;
-    if (typeof version === "string" && OPENCODE_UA_VERSION_RE.test(version)) {
-      if (version !== liveOpenCodeVersion) {
-        liveOpenCodeVersion = version;
-        try {
-          fs.mkdirSync(config.dataDir, { recursive: true });
-          fs.writeFileSync(versionFile, JSON.stringify({ version, checkedAt: Date.now() }), {
-            mode: 0o600,
-          });
-        } catch {}
-        log("info", "OpenCode UA version updated", { version });
-      }
-    }
+    if (typeof version !== "string") return;
+    const ua = `opencode/dev/${version}/opencode`;
+    if (!OPENCODE_UA_VERSION_RE.test(ua) || ua === liveOpenCodeUA) return;
+    liveOpenCodeUA = ua;
+    try {
+      fs.mkdirSync(config.dataDir, { recursive: true });
+      fs.writeFileSync(versionFile, JSON.stringify({ ua, checkedAt: Date.now() }), {
+        mode: 0o600,
+      });
+    } catch {}
+    log("info", "OpenCode UA refreshed", { ua });
   } catch (err) {
     log("debug", "OpenCode UA refresh skipped", { error: err.message });
   }
 }
 
-export function opencodeHeaders(withRequestHeader = false, customAuth = null) {
+export function opencodeHeaders(withRequestHeader = true, customAuth = null) {
   const traceId = randomBytes(16).toString("hex");
   const spanId = randomBytes(8).toString("hex");
   const session = currentOpenCodeSession();
   const headers = {
     "User-Agent": getOpenCodeUA(),
     Authorization: customAuth || "Bearer public",
-    "x-opencode-client": "desktop",
+    // v3 wire (9router #5381): client id is "opencode", not "desktop".
+    "x-opencode-client": "opencode",
     "x-opencode-project": OPENCODE_PROJECT_ID,
     "x-opencode-session": session,
     // v2 gate (2026-10-14): BOTH session headers must be present and equal.
     "x-opencode-session-id": session,
     "x-session-affinity": session,
+    // v3 wire: all four session headers, incl. the capitalized variant.
+    "X-Session-Id": session,
+    // v3 wire: per-request id is REQUIRED again (v2 had rejected it).
+    "x-opencode-request": generateRequestId(),
+    // v3 wire: cache key bound to the session (valid upstream cache routing).
+    prompt_cache_key: session,
+    // Distributed-tracing headers real opencode clients emit.
     b3: `${traceId}-${spanId}-1-${spanId}`,
     traceparent: `00-${traceId}-${spanId}-01`,
     Accept: "text/event-stream",
   };
-  // v2 gate rejects x-opencode-request on inference endpoints. Only sent on catalog/v1 surfaces.
-  if (withRequestHeader) {
-    headers["x-opencode-request"] = generateRequestId();
-  }
   return headers;
 }
 
@@ -213,12 +222,18 @@ function toolNameOf(tool) {
 
 export function ensureChatFingerprintTools(body) {
   if (!Array.isArray(body.tools)) body.tools = [];
-  // 1) Alias caller tools whose names collide with real opencode tools
+  // 1) Alias caller tools whose names collide with real opencode tools or contain "terminal"
   const wireToCaller = new Map();
+  let aliasCounter = 0;
   body.tools = body.tools.map((tool) => {
     const name = toolNameOf(tool);
-    if (!name || !OPENCODE_TOOL_NAMES.has(name.toLowerCase())) return tool;
-    const alias = `${name}_pi`;
+    if (!name) return tool;
+    const lower = name.toLowerCase();
+    const gated = OPENCODE_TOOL_NAMES.has(lower) || lower.includes("terminal");
+    if (!gated) return tool;
+    const alias = OPENCODE_TOOL_NAMES.has(lower)
+      ? `${name}_pi`
+      : `run_command${aliasCounter++ ? `_${aliasCounter}` : ""}`;
     wireToCaller.set(alias, name);
     if (tool && typeof tool === "object" && !Array.isArray(tool)) {
       const cloned = { ...tool };
@@ -248,6 +263,32 @@ export function ensureChatFingerprintTools(body) {
 }
 
 export function ensureResponsesFingerprintTools(body) {
+  const wireToCaller = new Map();
+  let aliasCounter = 0;
+  if (Array.isArray(body.tools)) {
+    body.tools = body.tools.map((tool) => {
+      const name = toolNameOf(tool);
+      if (!name) return tool;
+      const lower = name.toLowerCase();
+      if (!OPENCODE_TOOL_NAMES.has(lower) && !lower.includes("terminal")) {
+        return tool;
+      }
+      const alias = OPENCODE_TOOL_NAMES.has(lower)
+        ? `${name}_pi`
+        : `run_command${aliasCounter++ ? `_${aliasCounter}` : ""}`;
+      wireToCaller.set(alias, name);
+      if (tool && typeof tool === "object" && !Array.isArray(tool)) {
+        const cloned = { ...tool };
+        if (typeof cloned.name === "string") cloned.name = alias;
+        return cloned;
+      }
+      return tool;
+    });
+  }
+  if (wireToCaller.size) {
+    body.__bansosToolAliases = Object.fromEntries(wireToCaller);
+  }
+
   const present = new Set();
   if (!Array.isArray(body.tools)) body.tools = [];
   for (const tool of body.tools) {

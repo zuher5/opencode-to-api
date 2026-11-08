@@ -19,7 +19,7 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
   - `GET /health` & `GET /v1/status`
 - **Autentikasi Lokal**: API key default `sk-2004` (dapat dikonfigurasi lewat environment variable `LOCAL_API_KEY`). Mendukung autentikasi melalui header `Authorization: Bearer <key>`, header `x-api-key: <key>`, atau query string `?api_key=<key>`.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
-- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog upstream belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (21 model).
+- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog upstream belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (18 model).
 - **Dual Upstream Handlers**:
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, CLI `<env>` environment fingerprint injection pada system prompt untuk mencegah fake 429 `FreeUsageLimitError`, re-mint session ID mingguan agar session tidak kadaluarsa >30 hari, serta incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
@@ -35,35 +35,32 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 
 ## Model yang Didukung
 
-**21 Model Terkurasi (8 OpenCode Zen + 13 KiloCode Gateway)**
+**18 Model Terkurasi (10 OpenCode Zen + 8 KiloCode Gateway)**
 
-> Pembaruan Katalog Terverifikasi:
-> - **OpenCode Zen**: Menghadirkan `flint-40b-free` (200K Context), peningkatan batas context `deepseek-v4.1-flash-free` menjadi **320K** (max token 64K), serta pembersihan model yang sudah deprecated/tidak aktif.
-> - **KiloCode Gateway**: Menghadirkan `recursive/flint-v1.0:free` (262K Context), serta pembersihan model yang sudah 404/tidak tersedia.
+> Pembaruan Katalog Terverifikasi (Sweep 2026-11-06):
+> - **OpenCode Zen**: Menghadirkan `crouton-alpha-free` dan `pulse-alpha-free` (262K Context, Reasoning), `flint-40b-free` (200K Context), batas context `deepseek-v4.1-flash-free` **320K** (max token 64K), serta pembersihan model yang sudah deprecated/tidak aktif.
+> - **KiloCode Gateway**: 8 model survivor lolos verifikasi 200 setelah gateway memangkas model tidak aktif (dropped: `recursive/flint-v1.0`, `xingchen-agi/xing4.0`, `nemotron-3-super`, `nemotron-3.5-content-safety`, `poolside/laguna-s`).
 
-### OpenCode Zen (8 Model)
+### OpenCode Zen (10 Model)
 - `beam-free`
+- `crouton-alpha-free` (262K Context, Reasoning — Baru)
+- `pulse-alpha-free` (262K Context, Reasoning — Baru)
 - `mimo-v2.6-flash-free` (Vision, Reasoning)
 - `nemotron-3.5-lightning-free` (Reasoning)
 - `big-pickle` (Reasoning)
 - `deepseek-v4.1-flash-free` (320K Context, 64K Max Output, Vision, Reasoning)
-- `flint-40b-free` (200K Context, Reasoning — Baru)
+- `flint-40b-free` (200K Context, Reasoning)
 - `glm-5.3-flash-free` (Vision, Reasoning)
 - `nemotron-3.5-super-vl-free` (1M Context, Vision, Reasoning)
 
-### KiloCode Gateway (13 Model)
+### KiloCode Gateway (8 Model)
 - `kilo-auto/free`
-- `recursive/flint-v1.0:free` (262K Context, Reasoning — Baru)
-- `xingchen-agi/xing4.0-29b-a4b:free` (Reasoning, thinkingFormat: openrouter)
 - `nvidia/nemotron-3-ultra-550b-a55b:free` (1M Context, Reasoning, thinkingFormat: openrouter)
-- `nvidia/nemotron-3-super-120b-a12b:free` (Reasoning, thinkingFormat: openrouter)
 - `dots-studio/dots-3-note-preview:free` (Vision, Reasoning, thinkingFormat: openrouter)
 - `cohere/north-mini-code:free`
 - `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (Vision, Reasoning, thinkingFormat: openrouter)
 - `openrouter/free` (Vision)
 - `nvidia/nemotron-3.5-lightning:free` (1M Context, Reasoning, thinkingFormat: openrouter)
-- `nvidia/nemotron-3.5-content-safety:free` (Vision, Reasoning, thinkingFormat: openrouter)
-- `poolside/laguna-s-2.1:free` (Reasoning, thinkingFormat: openrouter)
 - `nvidia/nemotron-3.5-super-vl:free` (1M Context, Vision, Reasoning, thinkingFormat: openrouter)
 
 ---
@@ -95,7 +92,7 @@ Server akan mencetak URL dan Local API Key saat startup:
   • Local Endpoint : http://127.0.0.1:18080/v1
   • Health Check   : http://127.0.0.1:18080/health
   • Local API Key  : sk-2004
-  • Active Models  : 21 models available
+  • Active Models  : 18 models available
 ```
 
 Buka `http://127.0.0.1:18080/` di browser (Chrome, Firefox, dsb.) untuk mengakses:
@@ -161,7 +158,7 @@ print(response.choices[0].message.content)
 
 ## Menjalankan Pengujian (Testing)
 
-Proyek ini dilengkapi dengan unit test menyeluruh (38 unit tests) dan mock upstream:
+Proyek ini dilengkapi dengan unit test menyeluruh (39 unit tests) dan mock upstream:
 ```bash
 npm test
 ```

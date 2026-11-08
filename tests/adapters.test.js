@@ -31,6 +31,14 @@ test("OpenCode Zen Adapter - Chat Completions transform (v2 gate)", () => {
           parameters: { type: "object", properties: {} },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "terminal_runner",
+          description: "Substrings with terminal trigger alias gate",
+          parameters: { type: "object", properties: {} },
+        },
+      },
     ],
   };
 
@@ -52,6 +60,11 @@ test("OpenCode Zen Adapter - Chat Completions transform (v2 gate)", () => {
   assert.ok(!toolNames.includes("bash"));
   assert.ok(toolNames.includes("my_custom_tool"));
   assert.equal(body.__bansosToolAliases?.["bash_pi"], "bash");
+
+  // Caller tool containing "terminal" must be aliased to "run_command"
+  assert.ok(toolNames.includes("run_command"));
+  assert.ok(!toolNames.includes("terminal_runner"));
+  assert.equal(body.__bansosToolAliases?.["run_command"], "terminal_runner");
 
   // tool_choice should NOT be forced to "none" in v2 gate
   assert.notEqual(body.tool_choice, "none");
@@ -97,23 +110,21 @@ test("OpenCode Zen Adapter - Muse Responses transform (v2 gate)", () => {
 });
 
 test("OpenCode Zen Headers - Format and Distributed Tracing (Inference vs Catalog)", () => {
-  // Inference headers: withRequestHeader = false
-  const infHeaders = opencodeHeaders(false);
-  assert.ok(infHeaders["User-Agent"].startsWith("opencode/"));
-  assert.equal(infHeaders["Authorization"], "Bearer public");
-  assert.equal(infHeaders["x-opencode-client"], "desktop");
-  assert.match(infHeaders["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
-  assert.equal(infHeaders["x-opencode-session-id"], infHeaders["x-opencode-session"]);
-  assert.equal(infHeaders["x-opencode-request"], undefined);
-  assert.ok(infHeaders["b3"]);
-  assert.ok(infHeaders["traceparent"]);
+  // v3 wire: client is "opencode", all session headers present, per-request id required
+  const headers = opencodeHeaders();
+  assert.ok(headers["User-Agent"].startsWith("opencode/"));
+  assert.equal(headers["Authorization"], "Bearer public");
+  assert.equal(headers["x-opencode-client"], "opencode");
+  assert.match(headers["x-opencode-session"], /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+  assert.equal(headers["x-opencode-session-id"], headers["x-opencode-session"]);
+  assert.equal(headers["X-Session-Id"], headers["x-opencode-session"]);
+  assert.equal(headers["x-session-affinity"], headers["x-opencode-session"]);
+  assert.equal(headers["prompt_cache_key"], headers["x-opencode-session"]);
+  assert.match(headers["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+  assert.ok(headers["b3"]);
+  assert.ok(headers["traceparent"]);
 
-  // Catalog headers: withRequestHeader = true
-  const catHeaders = opencodeHeaders(true);
-  assert.match(catHeaders["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
-  assert.equal(catHeaders["x-opencode-session-id"], catHeaders["x-opencode-session"]);
-
-  // User-Agent version check
+  // User-Agent version check (supports dev wire pattern)
   const ua = getOpenCodeUA();
-  assert.match(ua, /^opencode\/\d+\.\d+\.\d+$/);
+  assert.match(ua, /^opencode\/(?:dev\/)?[\w.-]+\/opencode$/);
 });
