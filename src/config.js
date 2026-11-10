@@ -14,6 +14,7 @@ export const config = {
   upstreamOpenCode: process.env.UPSTREAM_OPENCODE || "https://opencode.ai",
   upstreamOpenCodeInference: process.env.UPSTREAM_OPENCODE_INFERENCE || "https://opencode.ai/inference/v1",
   upstreamOpenCodeCatalog: process.env.UPSTREAM_OPENCODE_CATALOG || "https://opencode.ai/zen/v1",
+  opencodeCatalogApi: process.env.OPENCODE_CATALOG_URL || "https://models.opencode.ai/api.json",
   kiloChatUrl: process.env.KILO_CHAT_URL || "https://api.kilo.ai/api/gateway/chat/completions",
   kiloModelsUrl: process.env.KILO_MODELS_URL || "https://api.kilo.ai/api/gateway/models",
   opencodeUaEnv: "BANSOS_OPENCODE_UA",

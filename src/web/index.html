@@ -553,7 +553,7 @@
     </div>
     <nav>
       <button class="active" onclick="switchTab(this, 'playground')">Chat Tester</button>
-      <button onclick="switchTab(this, 'relay')">Relay Server</button>
+      <button onclick="switchTab(this, 'relay')">Egress & Relay</button>
       <button onclick="switchTab(this, 'keys')">Config & Keys</button>
     </nav>
   </header>
@@ -642,6 +642,39 @@
         <div id="cooldown-list">
           <div style="color:var(--secondary); font-size:0.825rem;">None — upstream is answering normally.</div>
         </div>
+      </div>
+
+      <!-- HTTP/HTTPS Forward Proxy -->
+      <div class="card">
+        <h2 class="card-title">
+          <span>HTTP/HTTPS Forward Proxy</span>
+          <span class="badge-status" id="proxy-indicator">Direct</span>
+        </h2>
+        <div class="switch-row">
+          <div>
+            <div style="font-weight:600; font-size:0.85rem; color:var(--primary);">Enable Forward Proxy</div>
+            <div style="font-size:0.72rem; color:var(--secondary);">Tunnel outbound requests via CONNECT proxy (e.g. Squid, CCProxy, commercial proxy)</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="proxy-toggle" onchange="toggleProxy(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <label for="proxy-url">Primary Proxy URL</label>
+        <input type="text" id="proxy-url" placeholder="http://user:pass@127.0.0.1:8080">
+
+        <label for="proxy-strategy">Rotation Strategy</label>
+        <select id="proxy-strategy">
+          <option value="round-robin">Round-Robin</option>
+          <option value="failover">Failover</option>
+          <option value="random">Random</option>
+        </select>
+
+        <label for="proxy-pool">Proxy Pool (one per line)</label>
+        <textarea id="proxy-pool" rows="3" placeholder="http://192.168.1.10:8080&#10;http://user:pass@192.168.1.11:8080"></textarea>
+
+        <button class="btn" style="width:100%; margin-top:8px;" onclick="submitSaveProxy()">Save Proxy Config</button>
       </div>
 
       <!-- Add New Relay -->
@@ -733,7 +766,10 @@
         const targetBtn = window.event.target.closest('button') || window.event.target;
         targetBtn.classList.add('active');
       }
-      if (name === 'relay') loadRelayData();
+      if (name === 'relay') {
+        loadRelayData();
+        loadProxyData();
+      }
     }
 
     async function init() {
@@ -751,6 +787,7 @@
 
         await loadModels();
         await loadRelayData();
+        await loadProxyData();
       } catch (e) {
         console.error("Initialization failed:", e);
       }
@@ -882,6 +919,63 @@
           </div>
         `;
         box.appendChild(div);
+      }
+    }
+
+    async function loadProxyData() {
+      try {
+        const res = await fetch('/api/proxy');
+        const data = await res.json();
+
+        document.getElementById('proxy-toggle').checked = Boolean(data.enabled);
+        if (data.rawUrl) document.getElementById('proxy-url').value = data.rawUrl;
+        if (data.strategy) document.getElementById('proxy-strategy').value = data.strategy;
+        if (Array.isArray(data.pool)) {
+          document.getElementById('proxy-pool').value = data.pool.map(p => p.display || p).join('\n');
+        }
+
+        const badge = document.getElementById('proxy-indicator');
+        if (data.enabled && data.url) {
+          badge.textContent = "Proxy: " + data.url.replace(/^https?:\/\//, '').slice(0, 20);
+          badge.className = "badge-status";
+        } else {
+          badge.textContent = "Off";
+          badge.className = "badge-status off";
+        }
+      } catch (err) {
+        console.error("Failed loading proxy data", err);
+      }
+    }
+
+    async function toggleProxy(enabled) {
+      await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      await loadProxyData();
+    }
+
+    async function submitSaveProxy() {
+      const url = document.getElementById('proxy-url').value.trim();
+      const strategy = document.getElementById('proxy-strategy').value;
+      const rawPool = document.getElementById('proxy-pool').value;
+      const pool = rawPool.split('\n').map(s => s.trim()).filter(Boolean);
+
+      try {
+        const res = await fetch('/api/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, strategy, pool })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          return alert(err.error?.message || 'Failed saving proxy configuration');
+        }
+        alert('Proxy configuration saved!');
+        await loadProxyData();
+      } catch (err) {
+        alert(err.message);
       }
     }
 

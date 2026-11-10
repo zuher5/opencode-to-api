@@ -3,6 +3,7 @@ import path from "node:path";
 import { config } from "../config.js";
 import { log } from "../utils/logger.js";
 import { markRelaySuccess, markRelayFailure, isRelayHealthy } from "./cooldown.js";
+import { selectActiveProxy, forwardProxyFetch } from "./forward-proxy.js";
 
 function getRelayStateFile() {
   return path.join(config.dataDir, "relay-state.json");
@@ -148,6 +149,10 @@ try {
 } catch {}
 
 function opencodeDirectFetch(url, opts) {
+  const proxy = selectActiveProxy();
+  if (proxy) {
+    return forwardProxyFetch(url, opts, proxy);
+  }
   const isOpencode = typeof url === "string" && url.startsWith(config.upstreamOpenCode);
   if (isOpencode && opencodeFreshDispatcher) {
     return fetch(url, { ...opts, dispatcher: opencodeFreshDispatcher });

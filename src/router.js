@@ -7,6 +7,7 @@ import { sendJsonError } from "./utils/errors.js";
 import { validateLocalAuth, getLocalApiKey } from "./auth/local-auth.js";
 import { getAliveCatalog, findModel } from "./catalog/discovery.js";
 import { KILO_MODEL_IDS } from "./catalog/definitions.js";
+import { effectiveMaxTokens } from "./catalog/token-budget.js";
 import { transformOpencodeBody, opencodeHeaders, restoreToolAliases } from "./adapters/opencode-zen.js";
 import { kiloHeaders } from "./adapters/kilo.js";
 import { checkRateLimit } from "./proxy/rate-limit.js";
@@ -25,6 +26,7 @@ import {
   setActiveRelay,
   setRelayEnabled,
 } from "./proxy/relay.js";
+import { getProxyDetails, setProxyConfig } from "./proxy/forward-proxy.js";
 import { deployVercelRelay, deployCloudflareRelay } from "./proxy/relay-deploy.js";
 import { pipeUpstreamStream, aggregateStreamToResponse } from "./proxy/stream.js";
 
@@ -95,15 +97,20 @@ export async function handleRequest(req, res) {
   if (pathname === "/health" || pathname === "/v1/health") {
     const alive = getAliveCatalog();
     const stats = getRelayStats();
+    const proxy = getProxyDetails();
     const body = JSON.stringify({
       status: "ok",
+      version: config.version || "1.5.0",
+      runtime: `node/${process.version}`,
       uptime: process.uptime(),
+      models: alive.length,
       modelsCount: alive.length,
       relay: {
         enabled: stats.enabled,
         active: stats.url || "direct",
         hits: stats.hits,
       },
+      proxy,
       cooldowns: upstreamHealth.snapshot(),
     });
     res.writeHead(200, {
@@ -225,6 +232,36 @@ export async function handleRequest(req, res) {
     }
   }
 
+  // GET /api/proxy
+  if (method === "GET" && pathname === "/api/proxy") {
+    const details = getProxyDetails();
+    const resJson = JSON.stringify(details);
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "access-control-allow-origin": "*",
+      "content-length": Buffer.byteLength(resJson),
+    });
+    return res.end(resJson);
+  }
+
+  // POST /api/proxy
+  if (method === "POST" && pathname === "/api/proxy") {
+    try {
+      const raw = await readBody(req);
+      const body = JSON.parse(raw);
+      const result = setProxyConfig(body);
+      const resJson = JSON.stringify(result);
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "content-length": Buffer.byteLength(resJson),
+      });
+      return res.end(resJson);
+    } catch (err) {
+      return sendJsonError(res, 400, err.message, "invalid_request_error");
+    }
+  }
+
   // Authentication check for /v1/* endpoints
   if (pathname.startsWith("/v1")) {
     const authResult = validateLocalAuth(req);
@@ -237,10 +274,12 @@ export async function handleRequest(req, res) {
   if (method === "GET" && pathname === "/v1/status") {
     const alive = getAliveCatalog();
     const stats = getRelayStats();
+    const proxy = getProxyDetails();
     const body = JSON.stringify({
       status: "active",
       models: alive.map((m) => ({ id: m.id, name: m.name, source: m.source })),
       relay: stats,
+      proxy,
     });
     res.writeHead(200, {
       "content-type": "application/json",
@@ -418,16 +457,31 @@ export async function handleRequest(req, res) {
         return res.end(data);
       } else {
         // OpenCode Zen (v2 gate: /inference/v1)
+        const modelDef = findModel(requestedModel);
+        if (parsedBody.max_tokens !== undefined || parsedBody.max_completion_tokens !== undefined || parsedBody.max_output_tokens !== undefined) {
+          const reqTok = parsedBody.max_tokens ?? parsedBody.max_completion_tokens ?? parsedBody.max_output_tokens;
+          const effTok = effectiveMaxTokens(reqTok, modelDef, parsedBody);
+          if (parsedBody.max_output_tokens !== undefined) {
+            parsedBody.max_output_tokens = effTok;
+          } else if (parsedBody.max_completion_tokens !== undefined) {
+            parsedBody.max_completion_tokens = effTok;
+          } else {
+            parsedBody.max_tokens = effTok;
+          }
+        }
+
         const { responsesPath } = transformOpencodeBody(parsedBody);
         const aliases = parsedBody.__bansosToolAliases;
         delete parsedBody.__bansosToolAliases;
 
         const relayStats = getRelayStats();
         if (relayStats.enabled && relayStats.url) {
-          const maxTok = parsedBody.max_tokens ?? parsedBody.max_output_tokens;
+          const maxTok = parsedBody.max_tokens ?? parsedBody.max_output_tokens ?? parsedBody.max_completion_tokens;
           if (typeof maxTok === "number" && maxTok > config.relayMaxTokens) {
             if ("max_output_tokens" in parsedBody) {
               parsedBody.max_output_tokens = config.relayMaxTokens;
+            } else if ("max_completion_tokens" in parsedBody) {
+              parsedBody.max_completion_tokens = config.relayMaxTokens;
             } else {
               parsedBody.max_tokens = config.relayMaxTokens;
             }

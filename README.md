@@ -7,7 +7,10 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 ## Fitur Utama
 
 - **Zero Dependency**: Murni dibangun dengan modul bawaan Node.js (Node 20+), tanpa instalasi paket eksternal npm yang berat.
-- **Web GUI & Chat Playground**: Tersedia antarmuka web interaktif di `http://127.0.0.1:18080/` untuk chat testing langsung, pengaturan relay kustom, dan salin Local API Key.
+- **Additive Token Budgeting**: Mencegah kendala umum `finish_reason: "length"` dengan konten kosong pada model reasoning (MiMo, Crouton, Pulse, Beam, DeepSeek, dsb) saat prompt pendek, melalui kalkulasi headroom token adaptif: `max_tokens = max(requested, 1024) + 4096`.
+- **Egress Forward Proxy Pool (CONNECT Tunneling)**: Mendukung perutean outbound langsung melalui proxy HTTP/HTTPS standar (Squid, CCProxy, proxy komersial) dengan rotasi pool (`round-robin`, `failover`, `random`) serta sanitasi kredensial otomatis.
+- **Web GUI & Chat Playground**: Tersedia antarmuka web interaktif di `http://127.0.0.1:18080/` untuk chat testing langsung, pengaturan forward proxy & relay kustom, dan salin Local API Key.
+- **CLI Self-Check Verifier**: Perangkat diagnostik mandiri via `npm run verify` dan `npm run verify:quick` untuk menguji status kesehatan, rute egress, dan throughput model secara real-time.
 - **Manajemen Relay Server**: Dukungan konfigurasi relay egress (toggle on/off, tambah relay kustom dengan header `x-relay-auth`, switch relay aktif, auto failover dengan cooldown, serta deploy otomatis relay worker ke Cloudflare Workers atau Vercel Edge).
 - **Deployer Otomatis Relay**:
   - **Cloudflare Workers**: Deploy otomatis modul worker dengan proteksi 32-byte auth secret (`x-relay-auth`), constant-time string comparison, payload size guard (32MB), loopback/private IP filter, dan allowlist upstream.
@@ -19,7 +22,7 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
   - `GET /health` & `GET /v1/status`
 - **Autentikasi Lokal**: API key default `sk-2004` (dapat dikonfigurasi lewat environment variable `LOCAL_API_KEY`). Mendukung autentikasi melalui header `Authorization: Bearer <key>`, header `x-api-key: <key>`, atau query string `?api_key=<key>`.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
-- **Katalog Otoritatif + Model Cache**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, sehingga model yang masih hidup tidak pernah hilang hanya karena katalog upstream belum mencantumkannya. Cache lokal dipakai untuk metadata kesegaran & startup instan, dengan sinkronisasi otomatis di background. Hasilnya identik antara start online dan offline (18 model).
+- **Katalog Otoritatif + Live Discovery & Family Aliases**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, diperkaya dengan penemuan live dari `models.opencode.ai/api.json` dan disk-caching lokal. Mendukung alias shorthand family model (seperti `mimo` atau `beam`) serta context & output limit dinamis.
 - **Dual Upstream Handlers**:
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, CLI `<env>` environment fingerprint injection pada system prompt untuk mencegah fake 429 `FreeUsageLimitError`, re-mint session ID mingguan agar session tidak kadaluarsa >30 hari, serta incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
@@ -156,9 +159,22 @@ print(response.choices[0].message.content)
 
 ---
 
+## Verifikasi Kesiapan Server (Self-Check CLI)
+
+Jalankan pengujian kesiapan server dan latensi model secara instan:
+```bash
+# Pengujian cepat (berhenti pada model pertama yang sukses menjawab)
+npm run verify:quick
+
+# Pengujian lengkap (memeriksa seluruh model aktif satu per satu)
+npm run verify
+```
+
+---
+
 ## Menjalankan Pengujian (Testing)
 
-Proyek ini dilengkapi dengan unit test menyeluruh (39 unit tests) dan mock upstream:
+Proyek ini dilengkapi dengan unit test menyeluruh (**52 unit tests**) dan mock upstream:
 ```bash
 npm test
 ```

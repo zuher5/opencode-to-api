@@ -6,6 +6,71 @@ import { opencodeHeaders } from "../adapters/opencode-zen.js";
 import { kiloHeaders } from "../adapters/kilo.js";
 
 let aliveCatalog = [];
+let cachedFamilies = {};
+
+export function isTrustedCatalogBaseUrl(url) {
+  return typeof url === "string" && /^https:\/\/([a-z0-9-]+\.)*opencode\.ai(\/|$)/i.test(url);
+}
+
+export function parseCatalogData(json) {
+  const out = {};
+  const oc = json?.opencode;
+  if (!oc || typeof oc !== "object") return out;
+  const api = typeof oc.api === "string" ? oc.api.replace(/\/+$/, "") : null;
+  if (api && isTrustedCatalogBaseUrl(api)) {
+    out.catalogBase = api;
+    out.chatUrl = `${api}/chat/completions`;
+    if (api.endsWith("/v1")) out.responsesUrl = `${api}/responses`;
+  }
+
+  const freeModels = [];
+  const modelFacts = {};
+  const families = {};
+
+  for (const [id, m] of Object.entries(oc.models || {})) {
+    const zeroCost = Number(m?.cost?.input) === 0 && Number(m?.cost?.output) === 0;
+    const deprecated = m?.status === "deprecated";
+    const usable = m?.tool_call !== false;
+    const key = id.toLowerCase();
+
+    if (zeroCost && !deprecated && usable) {
+      freeModels.push(id);
+    }
+
+    if (typeof m?.reasoning === "boolean") {
+      modelFacts[key] = {
+        reasoning: m.reasoning,
+        maxOutput: Number(m?.limit?.output) > 0 ? Number(m.limit.output) : null,
+        contextWindow: Number(m?.limit?.context) > 0 ? Number(m.limit.context) : null,
+      };
+    }
+
+    const family = typeof m?.family === "string" ? m.family.trim().toLowerCase() : "";
+    if (family && zeroCost && !deprecated && usable && !families[family]) {
+      families[family] = id;
+    }
+  }
+
+  if (freeModels.length > 0) out.freeModels = freeModels;
+  if (Object.keys(modelFacts).length > 0) out.modelFacts = modelFacts;
+  if (Object.keys(families).length > 0) out.modelFamilies = families;
+
+  return out;
+}
+
+export async function fetchOpenCodeCatalogApi() {
+  try {
+    const res = await fetch(config.opencodeCatalogApi, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return parseCatalogData(json);
+  } catch (err) {
+    log("debug", "Failed fetching OpenCode catalog API", { error: err.message });
+    return null;
+  }
+}
 
 function extractCatalogIds(data) {
   if (!data || typeof data !== "object" || !Array.isArray(data.data)) return null;
@@ -65,20 +130,26 @@ export function modelsFromCache(cache) {
 }
 
 export async function refreshCatalogCache() {
-  const [opencode, kilo] = await Promise.all([
+  const [opencode, kilo, catalogApi] = await Promise.all([
     fetchOpenCodeCatalog(),
     fetchKiloCatalog(),
+    fetchOpenCodeCatalogApi(),
   ]);
 
   const prior = loadCatalogCache();
   const next = {
-    fetchedAt: opencode || kilo ? Date.now() : prior.fetchedAt,
+    fetchedAt: opencode || kilo || catalogApi ? Date.now() : prior.fetchedAt,
     ...(opencode ? { opencode: [...opencode] } : prior.opencode ? { opencode: prior.opencode } : {}),
     ...(kilo ? { kilo: [...kilo] } : prior.kilo ? { kilo: prior.kilo } : {}),
+    ...(catalogApi ? { catalogApi } : prior.catalogApi ? { catalogApi: prior.catalogApi } : {}),
   };
 
-  if (opencode || kilo) {
+  if (opencode || kilo || catalogApi) {
     saveCatalogCache(next);
+  }
+
+  if (next.catalogApi?.modelFamilies) {
+    cachedFamilies = { ...cachedFamilies, ...next.catalogApi.modelFamilies };
   }
 
   const updatedModels = modelsFromCache(next);
@@ -90,7 +161,10 @@ export async function refreshCatalogCache() {
 
 export async function initCatalog() {
   const cached = loadCatalogCache();
-  const hasCachedData = (cached.opencode?.length ?? 0) + (cached.kilo?.length ?? 0) > 0;
+  if (cached.catalogApi?.modelFamilies) {
+    cachedFamilies = { ...cachedFamilies, ...cached.catalogApi.modelFamilies };
+  }
+  const hasCachedData = (cached.opencode?.length ?? 0) + (cached.kilo?.length ?? 0) > 0 || Boolean(cached.catalogApi);
 
   if (hasCachedData) {
     aliveCatalog = modelsFromCache(cached);
@@ -121,6 +195,15 @@ export function getAliveCatalog() {
 }
 
 export function findModel(modelId) {
+  if (!modelId || typeof modelId !== "string") return null;
   const catalog = getAliveCatalog();
-  return catalog.find((m) => m.id === modelId) || null;
+  const direct = catalog.find((m) => m.id === modelId);
+  if (direct) return direct;
+
+  const lower = modelId.toLowerCase();
+  const targetId = cachedFamilies[lower];
+  if (targetId) {
+    return catalog.find((m) => m.id === targetId) || null;
+  }
+  return null;
 }

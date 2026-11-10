@@ -20,6 +20,7 @@ export function loadCatalogCache() {
       fetchedAt: typeof raw.fetchedAt === "number" ? raw.fetchedAt : 0,
       ...(validArray(raw.opencode) ? { opencode: raw.opencode } : {}),
       ...(validArray(raw.kilo) ? { kilo: raw.kilo } : {}),
+      ...(raw.catalogApi && typeof raw.catalogApi === "object" ? { catalogApi: raw.catalogApi } : {}),
     };
   } catch (err) {
     log("debug", "Could not read model cache file", { error: err.message });
