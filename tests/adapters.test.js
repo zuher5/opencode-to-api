@@ -68,6 +68,10 @@ test("OpenCode Zen Adapter - Chat Completions transform (v2 gate)", () => {
 
   // tool_choice should NOT be forced to "none" in v2 gate
   assert.notEqual(body.tool_choice, "none");
+
+  // v3 wire: prompt_cache_key bound to session in body
+  assert.ok(body.prompt_cache_key);
+  assert.match(body.prompt_cache_key, /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
 });
 
 test("OpenCode Zen Adapter - Tool Alias Restoration", () => {
@@ -119,7 +123,7 @@ test("OpenCode Zen Headers - Format and Distributed Tracing (Inference vs Catalo
   assert.equal(headers["x-opencode-session-id"], headers["x-opencode-session"]);
   assert.equal(headers["X-Session-Id"], headers["x-opencode-session"]);
   assert.equal(headers["x-session-affinity"], headers["x-opencode-session"]);
-  assert.equal(headers["prompt_cache_key"], headers["x-opencode-session"]);
+  assert.equal(headers["prompt_cache_key"], undefined);
   assert.match(headers["x-opencode-request"], /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
   assert.ok(headers["b3"]);
   assert.ok(headers["traceparent"]);

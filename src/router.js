@@ -8,7 +8,7 @@ import { validateLocalAuth, getLocalApiKey } from "./auth/local-auth.js";
 import { getAliveCatalog, findModel } from "./catalog/discovery.js";
 import { KILO_MODEL_IDS } from "./catalog/definitions.js";
 import { effectiveMaxTokens } from "./catalog/token-budget.js";
-import { transformOpencodeBody, opencodeHeaders, restoreToolAliases } from "./adapters/opencode-zen.js";
+import { transformOpencodeBody, opencodeHeaders, restoreToolAliases, burnSessionId } from "./adapters/opencode-zen.js";
 import { kiloHeaders } from "./adapters/kilo.js";
 import { checkRateLimit } from "./proxy/rate-limit.js";
 import {
@@ -514,6 +514,9 @@ export async function handleRequest(req, res) {
             retryAfter: upstreamResponse.headers.get("retry-after"),
             relayActive: via !== "direct",
           });
+          if (triage.kind === "quota") {
+            burnSessionId();
+          }
           if (triage.cooldownMs > 0) {
             log("warn", "Upstream triaged, cooling down", {
               upstream,

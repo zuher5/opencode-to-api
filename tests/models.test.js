@@ -12,26 +12,31 @@ import {
 
 test("Catalog - Models definition and discovery (v0.8.0 sweep)", () => {
   const catalog = getAliveCatalog();
-  assert.equal(catalog.length, 18, "Should have exactly 18 curated models (v0.8.0 sweep)");
-  assert.equal(OPENCODE_MODELS.length, 10, "Should have 10 OpenCode models");
+  assert.equal(catalog.length, 19, "Should have exactly 19 curated models (sweep 2026-11-07)");
+  assert.equal(OPENCODE_MODELS.length, 11, "Should have 11 OpenCode models");
   assert.equal(KILO_MODELS.length, 8, "Should have 8 Kilo models");
 
   // Check an OpenCode model
   const beam = findModel("beam-free");
   assert.ok(beam);
   assert.equal(beam.source, "opencode");
-  assert.equal(beam.contextWindow, 262_144);
+  assert.equal(beam.contextWindow, 1_048_576);
 
-  // Check v0.8.0 OpenCode additions
+  // Check OpenCode additions
   const crouton = findModel("crouton-alpha-free");
   assert.ok(crouton);
   assert.equal(crouton.source, "opencode");
-  assert.equal(crouton.contextWindow, 262_144);
+  assert.equal(crouton.contextWindow, 1_048_576);
 
-  const pulse = findModel("pulse-alpha-free");
-  assert.ok(pulse);
-  assert.equal(pulse.source, "opencode");
-  assert.equal(pulse.contextWindow, 262_144);
+  const iceman = findModel("iceman-free");
+  assert.ok(iceman);
+  assert.equal(iceman.source, "opencode");
+  assert.equal(iceman.contextWindow, 262_144);
+
+  const inkling = findModel("inkling-2-small-free");
+  assert.ok(inkling);
+  assert.equal(inkling.source, "opencode");
+  assert.equal(inkling.contextWindow, 1_048_576);
 
   // Check DeepSeek context bump (320k)
   const deepseek = findModel("deepseek-v4.1-flash-free");
@@ -56,7 +61,7 @@ test("Catalog - Models definition and discovery (v0.8.0 sweep)", () => {
 });
 
 test("Catalog - v0.8.0 additions register and route correctly", () => {
-  const newOpencode = ["crouton-alpha-free", "pulse-alpha-free", "flint-40b-free"];
+  const newOpencode = ["crouton-alpha-free", "iceman-free", "inkling-2-small-free", "flint-40b-free"];
   const newKilo = ["nvidia/nemotron-3.5-lightning:free"];
 
   const models = modelsFromCache({
@@ -89,7 +94,7 @@ test("Catalog - curated list is authoritative, not the live catalog", () => {
   // A cache that lists only a subset must not hide the other curated models.
   const liveCache = { fetchedAt: 1, opencode: ["beam-free"], kilo: ["kilo-auto/free"] };
   const models = modelsFromCache(liveCache);
-  assert.equal(models.length, 18);
+  assert.equal(models.length, 19);
 
   // Online and offline starts must expose the same catalog.
   const offline = modelsFromCache({ fetchedAt: 0 });
@@ -105,7 +110,7 @@ test("Catalog - curated list is authoritative, not the live catalog", () => {
     opencode: ["not-a-real-model"],
     kilo: ["also/fake:free"],
   });
-  assert.equal(foreign.length, 18);
+  assert.equal(foreign.length, 19);
 });
 
 test("Catalog - v0.8.0 sweep: dead upstream models are dropped", () => {
@@ -122,6 +127,7 @@ test("Catalog - v0.8.0 sweep: dead upstream models are dropped", () => {
     "step-5-preview-free",
     "ling-3.0-flash-fin-free",
     "ling-3.1-flash-free",
+    "pulse-alpha-free",
   ];
   // Kilo: 404 / 401 / 429
   const droppedKilo = [
@@ -153,5 +159,5 @@ test("Catalog - v0.8.0 sweep: dead upstream models are dropped", () => {
 test("Catalog - Fallback when cache is empty", () => {
   const emptyCache = { fetchedAt: 0, opencode: [], kilo: [] };
   const models = modelsFromCache(emptyCache);
-  assert.equal(models.length, 18, "Fallback should provide all 18 known models");
+  assert.equal(models.length, 19, "Fallback should provide all 19 known models");
 });

@@ -209,7 +209,13 @@ export function recordUpstreamFailure({
   if (kind === "quota") {
     if (relayActive) return { kind, cooldownMs: 0 };
     const sec = retryAfterSeconds(retryAfter, now);
-    return { kind, cooldownMs: health.recordQuotaFailure(upstream, model, sec, now) };
+    // OpenCode attaches a synthetic Retry-After counting down to
+    // 00:00 UTC (~16-22 h) on every FreeUsageLimitError, including
+    // minute-long congestion waves and single burned sessions
+    // (9router #5297). Ignore multi-hour hints on OpenCode so one
+    // transient 429 never locks the model out for the whole day.
+    const hint = upstream === "opencode" && sec != null && sec > 3600 ? null : sec;
+    return { kind, cooldownMs: health.recordQuotaFailure(upstream, model, hint, now) };
   }
   if (kind === "ip-flagged") {
     if (relayActive) return { kind, cooldownMs: 0 };

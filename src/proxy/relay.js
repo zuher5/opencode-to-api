@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import https from "node:https";
+import { Readable } from "node:stream";
 import { config } from "../config.js";
 import { log } from "../utils/logger.js";
 import { markRelaySuccess, markRelayFailure, isRelayHealthy } from "./cooldown.js";
@@ -135,29 +137,114 @@ export function updateRelayConfig(newState) {
   return relayState;
 }
 
-// v3 wire (9router #5381): OpenCode direct requests use a FRESH TLS
-// connection each time — keep-alive socket reuse lets one flagged
-// (ip, session) poison every request riding that connection (429 cascade).
-let opencodeFreshDispatcher = null;
-try {
-  const { Agent } = await import("undici");
-  opencodeFreshDispatcher = new Agent({
-    keepAliveTimeout: 1,
-    keepAliveMaxTimeout: 1,
-    keepAliveTimeoutThreshold: 1,
-  });
-} catch {}
+// TLS ClientHello JA4 cipher-list gate (9router opencodeTlsClient.js, live-
+// verified 2026-11-07): OpenCode's edge keys on the TLS ClientHello JA4 cipher
+// hash (BoringSSL/Bun order: 5b57614c22b0). Node's default OpenSSL cipher list
+// is refused with 429 FreeUsageLimitError on every request even from a clean
+// IP with valid v3 headers/body. Passing this cipher list + agent: false to
+// Node's built-in https.request matches the BoringSSL JA4 cipher hash and
+// opens a fresh TLS connection each time with zero external dependencies.
+export const OPENCODE_CIPHER_LIST = [
+  "TLS_AES_128_GCM_SHA256",
+  "TLS_AES_256_GCM_SHA384",
+  "TLS_CHACHA20_POLY1305_SHA256",
+  "ECDHE-ECDSA-AES128-GCM-SHA256",
+  "ECDHE-RSA-AES128-GCM-SHA256",
+  "ECDHE-ECDSA-AES256-GCM-SHA384",
+  "ECDHE-RSA-AES256-GCM-SHA384",
+  "ECDHE-ECDSA-CHACHA20-POLY1305",
+  "ECDHE-RSA-CHACHA20-POLY1305",
+  "ECDHE-ECDSA-AES128-SHA",
+  "ECDHE-RSA-AES128-SHA",
+  "ECDHE-ECDSA-AES256-SHA",
+  "ECDHE-RSA-AES256-SHA",
+  "AES128-GCM-SHA256",
+  "AES256-GCM-SHA384",
+  "AES128-SHA",
+  "AES256-SHA",
+].join(":");
 
-function opencodeDirectFetch(url, opts) {
+function opencodeDirectFetch(url, opts = {}) {
   const proxy = selectActiveProxy();
   if (proxy) {
     return forwardProxyFetch(url, opts, proxy);
   }
   const isOpencode = typeof url === "string" && url.startsWith(config.upstreamOpenCode);
-  if (isOpencode && opencodeFreshDispatcher) {
-    return fetch(url, { ...opts, dispatcher: opencodeFreshDispatcher });
+  if (!isOpencode || !url.startsWith("https:")) {
+    return fetch(url, opts);
   }
-  return fetch(url, opts);
+
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const headers = {};
+    if (opts.headers) {
+      new Headers(opts.headers).forEach((v, k) => {
+        headers[k] = v;
+      });
+    }
+
+    const bodyBuf =
+      opts.body == null
+        ? undefined
+        : Buffer.isBuffer(opts.body)
+          ? opts.body
+          : typeof opts.body === "string"
+            ? Buffer.from(opts.body)
+            : Buffer.from(opts.body);
+
+    if (bodyBuf && !headers["content-length"]) {
+      headers["content-length"] = String(bodyBuf.length);
+    }
+
+    const req = https.request(
+      {
+        method: opts.method || "GET",
+        hostname: u.hostname,
+        port: Number(u.port) || 443,
+        path: `${u.pathname}${u.search}`,
+        headers,
+        agent: false,
+        ciphers: OPENCODE_CIPHER_LIST,
+      },
+      (res) => {
+        const status = res.statusCode ?? 502;
+        const resHeaders = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (typeof v === "string") resHeaders.set(k, v);
+          else if (Array.isArray(v)) resHeaders.set(k, v.join(", "));
+        }
+        const nullBody = status === 204 || status === 205 || status === 304;
+        resolve(
+          new Response(
+            nullBody
+              ? null
+              : (Readable.toWeb(res)),
+            {
+              status,
+              statusText: res.statusMessage ?? "",
+              headers: resHeaders,
+            }
+          )
+        );
+      }
+    );
+
+    if (opts.signal) {
+      if (opts.signal.aborted) {
+        req.destroy(opts.signal.reason ?? new Error("Aborted"));
+        return;
+      }
+      opts.signal.addEventListener(
+        "abort",
+        () => req.destroy(opts.signal?.reason ?? new Error("Aborted")),
+        { once: true }
+      );
+    }
+
+    req.on("error", reject);
+    if (bodyBuf) req.end(bodyBuf);
+    else req.end();
+  });
 }
 
 export function orderedRelayCandidates() {

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import https from "node:https";
+import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 import {
   addRelay,
   removeRelay,
@@ -8,6 +11,7 @@ import {
   relayFetch,
   responseVia,
   getRelayDetails,
+  OPENCODE_CIPHER_LIST,
 } from "../src/proxy/relay.js";
 import { deployVercelRelay, deployCloudflareRelay } from "../src/proxy/relay-deploy.js";
 
@@ -117,27 +121,40 @@ test("Relay deploy - validation and mock deployment flow", async () => {
   }
 });
 
-test("Relay - direct OpenCode fetch marks responseVia direct", async () => {
-  const originalFetch = globalThis.fetch;
+test("Relay - direct OpenCode fetch marks responseVia direct and passes JA4 ciphers", async () => {
+  const originalRequest = https.request;
   try {
-    let calledUrl = null;
-    let receivedOpts = null;
-    globalThis.fetch = async (url, opts) => {
-      calledUrl = String(url);
-      receivedOpts = opts;
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    let capturedOpts = null;
+    https.request = (opts, callback) => {
+      capturedOpts = opts;
+      const res = Readable.from([Buffer.from(JSON.stringify({ ok: true }))]);
+      res.statusCode = 200;
+      res.statusMessage = "OK";
+      res.headers = { "content-type": "application/json" };
+      process.nextTick(() => {
+        callback(res);
+      });
+      const req = new EventEmitter();
+      req.end = () => {};
+      req.destroy = () => {};
+      return req;
     };
 
     setRelayEnabled(false);
-    const res = await relayFetch("https://opencode.ai/inference/v1", {
+    const res = await relayFetch("https://opencode.ai/inference/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hello: "world" }),
     });
 
     assert.equal(res.status, 200);
     assert.equal(responseVia.get(res), "direct");
-    assert.equal(calledUrl, "https://opencode.ai/inference/v1");
+    assert.equal(capturedOpts.hostname, "opencode.ai");
+    assert.equal(capturedOpts.ciphers, OPENCODE_CIPHER_LIST);
+    assert.equal(capturedOpts.agent, false);
+    const data = await res.json();
+    assert.deepEqual(data, { ok: true });
   } finally {
-    globalThis.fetch = originalFetch;
+    https.request = originalRequest;
   }
 });

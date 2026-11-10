@@ -123,6 +123,15 @@ export function currentOpenCodeSession() {
   return openCodeSession;
 }
 
+export function burnSessionId() {
+  const fresh = generateSessionId();
+  if (OPENCODE_SESSION_RE.test(fresh)) {
+    openCodeSession = fresh;
+    openCodeSessionMintedAt = Date.now();
+  }
+  return openCodeSession;
+}
+
 export const OPENCODE_SESSION = openCodeSession;
 
 function loadCachedUA() {
@@ -201,8 +210,6 @@ export function opencodeHeaders(withRequestHeader = true, customAuth = null) {
     "X-Session-Id": session,
     // v3 wire: per-request id is REQUIRED again (v2 had rejected it).
     "x-opencode-request": generateRequestId(),
-    // v3 wire: cache key bound to the session (valid upstream cache routing).
-    prompt_cache_key: session,
     // Distributed-tracing headers real opencode clients emit.
     b3: `${traceId}-${spanId}-1-${spanId}`,
     traceparent: `00-${traceId}-${spanId}-01`,
@@ -422,6 +429,9 @@ export function transformOpencodeBody(body) {
     ensureEnvFingerprint(body, true);
     return { body, responsesPath: true };
   } else {
+    // v3 wire (9router #5381): chat completions bind prompt_cache_key to the
+    // session in the JSON body (never as an HTTP header).
+    body.prompt_cache_key = currentOpenCodeSession();
     ensureChatFingerprintTools(body);
     ensureEnvFingerprint(body, false);
     return { body, responsesPath: false };

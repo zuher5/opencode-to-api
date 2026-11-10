@@ -7,7 +7,8 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 ## Fitur Utama
 
 - **Zero Dependency**: Murni dibangun dengan modul bawaan Node.js (Node 20+), tanpa instalasi paket eksternal npm yang berat.
-- **Additive Token Budgeting**: Mencegah kendala umum `finish_reason: "length"` dengan konten kosong pada model reasoning (MiMo, Crouton, Pulse, Beam, DeepSeek, dsb) saat prompt pendek, melalui kalkulasi headroom token adaptif: `max_tokens = max(requested, 1024) + 4096`.
+- **TLS ClientHello JA4 Gate Bypass**: Meniru fingerprint JA4 BoringSSL/Bun (`5b57614c22b0`) dengan cipher list terurut (`OPENCODE_CIPHER_LIST` + `agent: false`) pada modul bawaan `node:https`. Mengatasi pemblokiran fake `429 FreeUsageLimitError` dari Cloudflare edge OpenCode Zen tanpa memerlukan Bun atau runtime khusus.
+- **Additive Token Budgeting**: Mencegah kendala umum `finish_reason: "length"` dengan konten kosong pada model reasoning (MiMo, Crouton, Iceman, Beam, DeepSeek, dsb) saat prompt pendek, melalui kalkulasi headroom token adaptif: `max_tokens = max(requested, 1024) + 4096`.
 - **Egress Forward Proxy Pool (CONNECT Tunneling)**: Mendukung perutean outbound langsung melalui proxy HTTP/HTTPS standar (Squid, CCProxy, proxy komersial) dengan rotasi pool (`round-robin`, `failover`, `random`) serta sanitasi kredensial otomatis.
 - **Web GUI & Chat Playground**: Tersedia antarmuka web interaktif di `http://127.0.0.1:18080/` untuk chat testing langsung, pengaturan forward proxy & relay kustom, dan salin Local API Key.
 - **CLI Self-Check Verifier**: Perangkat diagnostik mandiri via `npm run verify` dan `npm run verify:quick` untuk menguji status kesehatan, rute egress, dan throughput model secara real-time.
@@ -22,7 +23,7 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
   - `GET /health` & `GET /v1/status`
 - **Autentikasi Lokal**: API key default `sk-2004` (dapat dikonfigurasi lewat environment variable `LOCAL_API_KEY`). Mendukung autentikasi melalui header `Authorization: Bearer <key>`, header `x-api-key: <key>`, atau query string `?api_key=<key>`.
 - **Port Auto-Bump**: Menggunakan port default `18080` dan otomatis mencoba port berikutnya (hingga `18100`) jika port sedang terpakai.
-- **Katalog Otoritatif + Live Discovery & Family Aliases**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, diperkaya dengan penemuan live dari `models.opencode.ai/api.json` dan disk-caching lokal. Mendukung alias shorthand family model (seperti `mimo` atau `beam`) serta context & output limit dinamis.
+- **Katalog Otoritatif + Live Discovery & Family Aliases**: Daftar model kurasi (hasil verifikasi fungsional) adalah sumber kebenaran, diperkaya dengan penemuan live dari `models.opencode.ai/api.json` dan disk-caching lokal. Mendukung alias shorthand family model (seperti `mimo` atau `beam`) serta context & output limit dinamis (19 model).
 - **Dual Upstream Handlers**:
   - **OpenCode Zen (Gate v2)**: Penerapan client fingerprinting (v2 gate `/inference/v1`, bit-exact identifier `OPENCODE_ID_MASK`, skema tool resmi verbatim `read` + `shell`, tool aliasing `*_pi` dengan pemulihan otomatis, CLI `<env>` environment fingerprint injection pada system prompt untuk mencegah fake 429 `FreeUsageLimitError`, re-mint session ID mingguan agar session tidak kadaluarsa >30 hari, serta incremental UTF-8 decoder & SSE event framing preservation).
   - **KiloCode Gateway**: Akses keyless resmi (200 request/jam/IP).
@@ -38,22 +39,23 @@ Server API mandiri (*standalone*) yang kompatibel dengan protokol OpenAI (**Open
 
 ## Model yang Didukung
 
-**18 Model Terkurasi (10 OpenCode Zen + 8 KiloCode Gateway)**
+**19 Model Terkurasi (11 OpenCode Zen + 8 KiloCode Gateway)**
 
-> Pembaruan Katalog Terverifikasi (Sweep 2026-11-06):
-> - **OpenCode Zen**: Menghadirkan `crouton-alpha-free` dan `pulse-alpha-free` (262K Context, Reasoning), `flint-40b-free` (200K Context), batas context `deepseek-v4.1-flash-free` **320K** (max token 64K), serta pembersihan model yang sudah deprecated/tidak aktif.
+> Pembaruan Katalog Terverifikasi (Sweep 2026-11-07):
+> - **OpenCode Zen**: Menghadirkan `iceman-free` (262K Context, Reasoning), `inkling-2-small-free` (1M Context, Vision, Reasoning), `crouton-alpha-free` (1M Context, Vision, Reasoning), `flint-40b-free` (262K Context), batas context `beam-free` 1M Context (max token 131K), batas context `deepseek-v4.1-flash-free` **320K** (max token 64K), serta pembersihan model tidak aktif (`pulse-alpha-free` dropped).
 > - **KiloCode Gateway**: 8 model survivor lolos verifikasi 200 setelah gateway memangkas model tidak aktif (dropped: `recursive/flint-v1.0`, `xingchen-agi/xing4.0`, `nemotron-3-super`, `nemotron-3.5-content-safety`, `poolside/laguna-s`).
 
-### OpenCode Zen (10 Model)
-- `beam-free`
-- `crouton-alpha-free` (262K Context, Reasoning — Baru)
-- `pulse-alpha-free` (262K Context, Reasoning — Baru)
-- `mimo-v2.6-flash-free` (Vision, Reasoning)
-- `nemotron-3.5-lightning-free` (Reasoning)
-- `big-pickle` (Reasoning)
+### OpenCode Zen (11 Model)
+- `beam-free` (1M Context, 131K Max Output, Reasoning)
+- `crouton-alpha-free` (1M Context, 270K Max Output, Vision, Reasoning)
+- `iceman-free` (262K Context, 131K Max Output, Reasoning — Baru)
+- `inkling-2-small-free` (1M Context, 131K Max Output, Vision, Reasoning — Baru)
+- `mimo-v2.6-flash-free` (200K Context, Vision, Reasoning)
+- `nemotron-3.5-lightning-free` (262K Context, Reasoning)
+- `big-pickle` (200K Context, Reasoning)
 - `deepseek-v4.1-flash-free` (320K Context, 64K Max Output, Vision, Reasoning)
-- `flint-40b-free` (200K Context, Reasoning)
-- `glm-5.3-flash-free` (Vision, Reasoning)
+- `flint-40b-free` (262K Context, 65K Max Output, Reasoning)
+- `glm-5.3-flash-free` (200K Context, Vision, Reasoning)
 - `nemotron-3.5-super-vl-free` (1M Context, Vision, Reasoning)
 
 ### KiloCode Gateway (8 Model)

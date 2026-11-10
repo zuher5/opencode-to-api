@@ -1,16 +1,15 @@
 /**
- * Curated model definitions ported from pi-bansos (v0.7.2).
+ * Curated model definitions ported from pi-bansos (v0.8.1).
  *
- * Model sweep 2026-10-26 (upstream v0.7.2):
+ * Model sweep 2026-11-07 (upstream v0.8.1):
  * - OpenCode Zen:
- *   Dropped (absent from /zen/v1/models catalog): minimax-m3.1-flash-free,
- *   nemotron-3-ultra-free, longcat-2.5-preview-free, cat-jam-free.
- *   Added: flint-40b-free (catalog-listed).
- *   Updated: deepseek-v4.1-flash-free contextWindow 200K -> 320K, maxTokens 32K -> 64K.
+ *   Added: iceman-free (262K/131K), inkling-2-small-free (1M/131K, vision).
+ *   Dropped: pulse-alpha-free (removed from catalog, 400 Model is unavailable).
+ *   Updated: beam-free 1M/131K, crouton-alpha-free 1M/270K (vision), flint-40b-free 262K/65K.
+ *   Total OpenCode models: 11.
  * - KiloCode Gateway:
- *   Dropped (404 upstream): minimax/minimax-m3.1-flash:free, thinkingmachines/inkling-small:free.
- *   Added: recursive/flint-v1.0:free (chat 200).
- * Catalog total: 25 -> 21 (8 OpenCode + 13 Kilo).
+ *   8 survivors chat-verified 200.
+ * Catalog total: 19 (11 OpenCode + 8 Kilo).
  */
 
 export const OPENCODE_MODELS = [
@@ -18,8 +17,8 @@ export const OPENCODE_MODELS = [
     id: "beam-free",
     name: "Beam Free",
     reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 65_536,
+    contextWindow: 1_048_576,
+    maxTokens: 131_072,
     api: "openai-completions",
     input: ["text"],
     source: "opencode",
@@ -28,20 +27,30 @@ export const OPENCODE_MODELS = [
     id: "crouton-alpha-free",
     name: "Crouton Alpha Free",
     reasoning: true,
+    contextWindow: 1_048_576,
+    maxTokens: 270_000,
+    api: "openai-completions",
+    input: ["text", "image"],
+    source: "opencode",
+  },
+  {
+    id: "iceman-free",
+    name: "Iceman Free",
+    reasoning: true,
     contextWindow: 262_144,
-    maxTokens: 65_536,
+    maxTokens: 131_072,
     api: "openai-completions",
     input: ["text"],
     source: "opencode",
   },
   {
-    id: "pulse-alpha-free",
-    name: "Pulse Alpha Free",
+    id: "inkling-2-small-free",
+    name: "Inkling 2 Small Free",
     reasoning: true,
-    contextWindow: 262_144,
-    maxTokens: 65_536,
+    contextWindow: 1_048_576,
+    maxTokens: 131_072,
     api: "openai-completions",
-    input: ["text"],
+    input: ["text", "image"],
     source: "opencode",
   },
   {
@@ -88,8 +97,8 @@ export const OPENCODE_MODELS = [
     id: "flint-40b-free",
     name: "Flint 40B Free",
     reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 32_768,
+    contextWindow: 262_144,
+    maxTokens: 65_536,
     api: "openai-completions",
     input: ["text"],
     source: "opencode",
