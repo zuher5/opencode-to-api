@@ -5,6 +5,7 @@ const home = homedir();
 const defaultDataDir = path.join(home, ".opencode-to-api");
 
 export const config = {
+  version: "1.6.0",
   port: Number(process.env.PORT || process.env.BANSOS_PORT) || 18080,
   portMaxAttempts: 20,
   host: process.env.HOST || process.env.BANSOS_HOST || "127.0.0.1",

@@ -100,7 +100,7 @@ export async function handleRequest(req, res) {
     const proxy = getProxyDetails();
     const body = JSON.stringify({
       status: "ok",
-      version: config.version || "1.5.0",
+      version: config.version || "1.6.0",
       runtime: `node/${process.version}`,
       uptime: process.uptime(),
       models: alive.length,

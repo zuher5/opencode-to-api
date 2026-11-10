@@ -12,12 +12,37 @@
 
 import http from "node:http";
 
-const PORT = parseInt(process.env.PORT || "20128", 10);
+let ACTIVE_PORT = parseInt(process.env.PORT || "18080", 10);
 const RAW_HOST = process.env.HOST || "127.0.0.1";
 const HOST = RAW_HOST === "0.0.0.0" || RAW_HOST === "::" ? "127.0.0.1" : RAW_HOST;
-const BASE = `http://${HOST}:${PORT}`;
 const API_KEY = process.env.LOCAL_API_KEY || process.env.OPENAI_API_KEY || "sk-2004";
 const QUICK = process.argv.includes("--quick");
+
+function getBaseUrl() {
+  return `http://${HOST}:${ACTIVE_PORT}`;
+}
+
+export async function detectActivePort() {
+  if (process.env.PORT) {
+    ACTIVE_PORT = parseInt(process.env.PORT, 10);
+    return ACTIVE_PORT;
+  }
+  for (let p = 18080; p <= 18100; p++) {
+    try {
+      const res = await fetch(`http://${HOST}:${p}/health`, {
+        signal: AbortSignal.timeout(600),
+      });
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        if (body && (body.modelsCount !== undefined || body.runtime !== undefined || body.status === "ok")) {
+          ACTIVE_PORT = p;
+          return ACTIVE_PORT;
+        }
+      }
+    } catch {}
+  }
+  return ACTIVE_PORT;
+}
 
 const C = {
   reset: "\x1b[0m",
@@ -75,7 +100,7 @@ function request(method, path, body = null, timeoutMs = QUICK ? 25000 : 120000) 
     const req = http.request(
       {
         host: HOST,
-        port: PORT,
+        port: ACTIVE_PORT,
         path,
         method,
         headers,
@@ -115,7 +140,7 @@ async function checkHealth() {
     ok: true,
     version: res.body.version,
     runtime: res.body.runtime || null,
-    models: res.body.models,
+    models: res.body.models ?? res.body.modelsCount,
     relay: res.body.relay || null,
     proxy: res.body.proxy || null,
   };
@@ -164,12 +189,14 @@ async function probe(model) {
 }
 
 export async function runVerify() {
+  await detectActivePort();
+  const base = getBaseUrl();
   console.log(`\n${C.bold}opencode-to-api — readiness self-check${C.reset}`);
-  console.log(`${C.dim}${BASE}${C.reset}\n`);
+  console.log(`${C.dim}${base}${C.reset}\n`);
 
   const health = await checkHealth();
   if (!health.ok) {
-    console.log(`  ${bad("FAIL")} bridge not reachable at ${BASE}: ${health.detail}`);
+    console.log(`  ${bad("FAIL")} bridge not reachable at ${base}: ${health.detail}`);
     console.log(`\n  Start it first:  ${C.cyan}npm start${C.reset}\n`);
     return 1;
   }
@@ -230,7 +257,7 @@ export async function runVerify() {
   console.log(`  ${ok(String(usable))} usable, ${blocked} blocked by upstream, ${broken} broken`);
 
   if (usable > 0) {
-    console.log(`\n  ${ok("Bridge is working.")} Point your OpenAI client at ${C.cyan}${BASE}/v1${C.reset}\n`);
+    console.log(`\n  ${ok("Bridge is working.")} Point your OpenAI client at ${C.cyan}${base}/v1${C.reset}\n`);
     return 0;
   }
 
