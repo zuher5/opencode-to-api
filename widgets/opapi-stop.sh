@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # opencode-to-api widget stopper for Termux:Widget
 
-PID_FILE="/tmp/opapi.pid"
+PID_FILE="$TMPDIR/opapi.pid"
 
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
@@ -15,7 +15,7 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 else
     # Try to find and kill by port
-    PID=$(lsof -ti:18080 2>/dev/null | head -1)
+    PID=$(lsof -ti:18080,18081,18082,18083,18084 2>/dev/null | head -1)
     if [ -n "$PID" ]; then
         kill "$PID"
         termux-toast "opencode-to-api stopped (PID: $PID)"
