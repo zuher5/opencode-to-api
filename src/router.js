@@ -135,6 +135,37 @@ export async function handleRequest(req, res) {
     }
   }
 
+  // PWA Manifest
+  if (method === "GET" && pathname === "/manifest.json") {
+    try {
+      const manifest = fs.readFileSync(path.join(config.webDir || __dirname, "../web/manifest.json"), "utf8");
+      res.writeHead(200, {
+        "content-type": "application/manifest+json",
+        "content-length": Buffer.byteLength(manifest),
+        "cache-control": "public, max-age=86400",
+      });
+      return res.end(manifest);
+    } catch {
+      return sendJsonError(res, 404, "Manifest not found", "not_found");
+    }
+  }
+
+  // Service Worker
+  if (method === "GET" && pathname === "/sw.js") {
+    try {
+      const sw = fs.readFileSync(path.join(config.webDir || __dirname, "../web/sw.js"), "utf8");
+      res.writeHead(200, {
+        "content-type": "application/javascript",
+        "content-length": Buffer.byteLength(sw),
+        "cache-control": "public, max-age=0, must-revalidate",
+        "service-worker-allowed": "/",
+      });
+      return res.end(sw);
+    } catch {
+      return sendJsonError(res, 404, "Service worker not found", "not_found");
+    }
+  }
+
   // GET /api/info
   if (method === "GET" && pathname === "/api/info") {
     const alive = getAliveCatalog();
